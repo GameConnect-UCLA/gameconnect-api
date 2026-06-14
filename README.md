@@ -1,98 +1,239 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# GameConnect API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API NestJS + Prisma + PostgreSQL para la red social de videojuegos GameConnect.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Stack
 
-## Description
+| Capa | Tecnología |
+|------|-----------|
+| Framework | NestJS 11 |
+| ORM | Prisma 7 |
+| Base de datos | PostgreSQL 16 |
+| Cache | Valkey 7 (Redis-compatible) |
+| Búsqueda | Meilisearch 1.7 |
+| Auth | JWT (access + refresh tokens) |
+| Archivos | Supabase Storage |
+| Email | Resend |
+| Documentación | Swagger UI (`/api`) |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Prerrequisitos
 
-## Project setup
+- [Node.js 22+](https://nodejs.org/)
+- [pnpm](https://pnpm.io/) (`corepack enable`)
+- [Docker & Docker Compose](https://docs.docker.com/get-docker/)
+
+## Quickstart con Docker
 
 ```bash
-$ pnpm install
+# 1. Clonar y entrar al directorio
+cd gameconnect-api
+
+# 2. Copiar variables de entorno y editar
+cp .env.example .env
+
+# 3. Levantar todo (PostgreSQL + Valkey + Meilisearch + API)
+docker compose up -d
+
+# 4. Esperar a que los servicios estén healthy (~10s)
+docker compose ps
+
+# 5. Ejecutar migraciones y seed
+docker compose exec api pnpm prisma migrate dev
+docker compose exec api pnpm prisma db seed
+
+# 6. Verificar
+curl http://localhost:3000/health
 ```
 
-## Compile and run the project
+La API corre en `http://localhost:3000`. Swagger UI en `http://localhost:3000/api`.
+
+## Desarrollo local (sin Docker para la API)
 
 ```bash
-# development
-$ pnpm run start
+# Levantar solo infra (PostgreSQL, Valkey, Meilisearch)
+docker compose up -d postgres valkey meilisearch
 
-# watch mode
-$ pnpm run start:dev
+# Instalar dependencias
+pnpm install
 
-# production mode
-$ pnpm run start:prod
+# Migraciones y seed
+pnpm prisma migrate dev
+pnpm prisma db seed
+
+# Arrancar con hot reload
+pnpm start:dev
 ```
 
-## Run tests
+## Variables de entorno
+
+Copiar `.env.example` → `.env` y llenar:
+
+| Variable | Descripción | Ejemplo | Requerida |
+|----------|-------------|---------|-----------|
+| `DB_USER` | Usuario PostgreSQL | `admin` | Sí |
+| `DB_PASSWORD` | Password PostgreSQL | `admin` | Sí |
+| `DB_NAME` | Nombre de la base | `gameconnect_db` | Sí |
+| `DATABASE_URL` | Connection string Prisma | `postgresql://admin:admin@localhost:5433/gameconnect_db` | Sí |
+| `PORT` | Puerto de la API | `3000` | No (default: 3000) |
+| `NODE_ENV` | Entorno | `development` | No |
+| `JWT_SECRET` | Firma JWT | `supersecretkeychangeinproduction` | Sí |
+| `JWT_EXPIRATION` | TTL access token | `15m` | Sí |
+| `JWT_REFRESH_EXPIRATION` | TTL refresh token | `7d` | Sí |
+| `VALKEY_URL` | URL Valkey | `redis://localhost:6379` | Sí |
+| `MEILI_URL` | URL Meilisearch | `http://localhost:7700` | Sí |
+| `MEILI_MASTER_KEY` | API key Meilisearch | `decanatocienciaytecnologiaucla` | Sí |
+| `SUPABASE_URL` | URL proyecto Supabase | `https://xxx.supabase.co` | Sí (media) |
+| `SUPABASE_PUBLISHABLE_KEY` | Service role key Supabase | `eyJhbG...` | Sí (media) |
+| `SUPABASE_STORAGE_BUCKET` | Bucket name | `gameconnect-storage` | Sí (media) |
+| `RESEND_API_KEY` | API key Resend | `re_xxxxxxxx` | Sí (email) |
+| `RESEND_FROM` | Email remitente | `noreply@example.com` | Sí (email) |
+| `IGDB_CLIENT_ID` | Client ID IGDB | — | No (futuro) |
+| `IGDB_CLIENT_SECRET` | Client Secret IGDB | — | No (futuro) |
+
+> **Docker**: docker-compose.yml sobreescribe `DATABASE_URL` automáticamente para apuntar a `postgres:5432` (interno). En local usa `localhost:5433` (puerto expuesto).
+
+## Arquitectura
+
+```
+src/
+├── app.module.ts              ← Módulo raíz (importa todos los submódulos)
+├── main.ts                    ← Bootstrap: CORS, ValidationPipe, Swagger
+├── generated/prisma/          ← Cliente Prisma generado (no tocar)
+├── common/                    ← Pipes, interceptors, filtros compartidos
+└── modules/
+    ├── auth/                  ← Login, register, refresh, logout, JWT guard
+    ├── users/                 ← Perfil de usuario
+    ├── posts/                 ← Publicaciones, reviews, reposts
+    ├── games/                 ← Catálogo de juegos (IGDB metadata)
+    ├── media/                 ← Upload de archivos (Supabase Storage)
+    ├── chat/                  ← Mensajes directos y grupales (WebSocket)
+    ├── feed/                  ← Timeline personalizado
+    ├── notifications/         ← Notificaciones push
+    ├── moderation/            ← Reportes, ban, resolución
+    ├── search/                ← Búsqueda full-text (Meilisearch)
+    └── email/                 ← Envío de emails transaccionales (Resend)
+```
+
+**Reglas**:
+- Controllers reciben request y retornan response. Lógica en Services.
+- DTOs con `class-validator` + `@ApiProperty` para validación y Swagger.
+- `PrismaService` es global — se inyecta directamente sin importar módulo.
+- Endpoints protegidos usan `@UseGuards(JwtAuthGuard)` + `@ApiBearerAuth()`.
+- Ver `docs/nestjs-guide.md` para guía completa del equipo.
+
+## Endpoints principales
+
+| Método | Ruta | Descripción | Auth |
+|--------|------|-------------|------|
+| `GET` | `/health` | Estado del servidor | No |
+| `POST` | `/auth/register` | Registro (email, password, username?) | No |
+| `POST` | `/auth/login` | Login con email/password | No |
+| `POST` | `/auth/refresh` | Renovar access token | No |
+| `POST` | `/auth/logout` | Cerrar sesión (limpia refresh token) | **Sí** |
+| `GET` | `/users/profile` | Perfil del usuario autenticado | **Sí** |
+| `POST` | `/media/upload` | Subir archivo a Supabase | — |
+
+> **Swagger UI**: `http://localhost:3000/api` — documentación interactiva de todos los endpoints con esquemas de request/response.
+
+### Ejemplo: registro y uso
 
 ```bash
-# unit tests
-$ pnpm run test
+# Registrar usuario
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@gc.dev","password":"Password123!","username":"testuser"}'
 
-# e2e tests
-$ pnpm run test:e2e
+# Respuesta: { accessToken, refreshToken, user }
 
-# test coverage
-$ pnpm run test:cov
+# Acceder a endpoint protegido
+curl http://localhost:3000/users/profile \
+  -H "Authorization: Bearer <accessToken>"
 ```
 
-## Deployment
+## Seed: datos de prueba
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+El seed crea datos realistas para desarrollo:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+| Email | Password | Rol |
+|-------|----------|-----|
+| `admin@gc.dev` | `Password123!` | ADMIN |
+| `mod@gc.dev` | `Password123!` | MODERATOR |
+| `user@gc.dev` | `Password123!` | USER |
+
+Incluye: 2 juegos, 5 posts (con reviews), 4 comentarios, follows, likes, favorites, 1 conversación con mensajes, y notificaciones.
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+# Ejecutar seed
+docker compose exec api pnpm prisma db seed
+
+# Reset completo (cuidado: borra datos)
+docker compose exec api pnpm prisma migrate reset
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Scripts
 
-## Resources
+| Comando | Descripción |
+|---------|-------------|
+| `pnpm start:dev` | Desarrollo con hot reload |
+| `pnpm build` | Compilar producción (`dist/`) |
+| `pnpm start:prod` | Ejecutar build de producción |
+| `pnpm lint` | ESLint + fix automático |
+| `pnpm test` | Unit tests (Jest) |
+| `pnpm test:e2e` | End-to-end tests |
+| `pnpm prisma migrate dev` | Crear/ejecutar migración |
+| `pnpm prisma db seed` | Ejecutar seed |
+| `pnpm prisma studio` | GUI para explorar datos |
+| `pnpm prisma generate` | Regenerar cliente Prisma |
 
-Check out a few resources that may come in handy when working with NestJS:
+## Troubleshooting
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### `docker compose up` falla con error de Prisma
 
-## Support
+```bash
+# Regenerar cliente dentro del contenedor
+docker compose exec api pnpm prisma generate
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+# Verificar que la DB esté healthy
+docker compose ps
+```
 
-## Stay in touch
+### `@supabase/supabase-js` module not found
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+# Rebuild sin cache
+docker compose build --no-cache api
+docker compose up -d
+```
 
-## License
+### Puerto 3000 ocupado
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Cambiar `PORT` en `.env` o matar el proceso:
+```bash
+lsof -ti:3000 | xargs kill -9
+```
+
+### Migración falla por drift
+
+Si el schema de la DB no coincide con las migraciones:
+```bash
+# Reset completo (borra datos, reaplica migraciones, ejecuta seed)
+docker compose exec api pnpm prisma migrate reset
+```
+
+### Swagger no muestra endpoints
+
+Verificar que `nest-cli.json` tenga el plugin de Swagger habilitado. Si no aparecen los DTOs, reiniciar la API:
+```bash
+docker compose restart api
+```
+
+### Error de conexión a PostgreSQL
+
+Verificar que las credenciales en `.env` coincidan con `docker-compose.yml`:
+- Docker usa `postgres:5432` (interno)
+- Local usa `localhost:5433` (puerto expuesto)
+- `DATABASE_URL` debe apuntar al correcto según tu entorno
+
+## Docs adicionales
+
+- `docs/nestjs-guide.md` — Guía del equipo: estructura de módulos, JWT flow, cómo proteger endpoints, DTOs, Prisma, errores y convenciones.

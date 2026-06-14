@@ -1,4 +1,15 @@
+# ─── GameConnect API — Entorno de Desarrollo ─────────────────────────
+# Levanta PostgreSQL, Valkey, Meilisearch y la API NestJS con hot reload.
+#
+# Uso:
+#   docker compose build api        # construir la imagen de desarrollo
+#   docker compose up -d            # levantar todos los servicios
+#   docker compose exec api pnpm prisma migrate dev  # ejecutar migraciones
+#   docker compose exec api pnpm prisma db seed      # sembrar datos (opcional)
+#   docker compose down             # detener y remover contenedores
+
 services:
+  # ── PostgreSQL 16 ─────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: gameconnect_db
@@ -8,10 +19,16 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - '5432:5432'
+      - '5433:5432' # expuesto en 5433 para no colisionar con PG local
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
+  # ── Valkey 7 (Redis-compatible) ────────────────────────────────────
   valkey:
     image: valkey/valkey:7-alpine
     container_name: gameconnect_cache
@@ -20,7 +37,13 @@ services:
       - '6379:6379'
     volumes:
       - valkey_data:/data
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
+  # ── Meilisearch v1.7 ───────────────────────────────────────────────
   meilisearch:
     image: getmeili/meilisearch:v1.7
     container_name: gameconnect_search
@@ -32,6 +55,40 @@ services:
       - '7700:7700'
     volumes:
       - meili_data:/meili_data
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:7700/health']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── API NestJS (Desarrollo) ────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev # apunta al stage "dev" del Dockerfile
+    image: gameconnect-api
+    container_name: gameconnect_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Override: dentro de Docker la DB se llama "postgres" (no localhost)
+      DATABASE_URL: 'postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}'
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    volumes:
+      # Monta src/ para hot reload: cambios en código se reflejan al instante
+      - ./src:/app/src
+      # Monta prisma/ para reflejar cambios de schema sin rebuild
+      - ./prisma:/app/prisma
+    # CMD viene del Dockerfile (pnpm start:dev). No lo sobreescribimos.
 
 volumes:
   postgres_data:

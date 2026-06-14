@@ -12,3 +12,319 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum UserState {
+  ACTIVE
+  TO_DELETE
+  BANNED
+  INACTIVE
+}
+
+enum FavoriteType {
+  POST
+  GAME
+}
+
+enum GroupRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum UserRole {
+  MODERATOR
+  USER
+  ADMIN
+}
+
+enum FolloweeType {
+  USER
+  GAME
+}
+
+enum MessageType {
+  GROUP_MESSAGE
+  DIRECT_MESSAGE
+}
+
+enum EventType {
+  LIKE
+  FOLLOW
+  COMMENT
+  MENTION
+  MESSAGE
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportTarget {
+  POST
+  REVIEW
+  COMMENT
+  USER
+  GAME
+}
+
+enum ReportReason {
+  NSFW
+  HATE
+  SPAM
+  OTHER
+}
+
+// ─── MODELS ──────────────────────────────────────────────────────────────────
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  username        String?    @unique @db.VarChar(30)
+  displayName     String?    @map("display_name") @db.VarChar(30)
+  pronouns        String?    @db.VarChar(30)
+  role            UserRole?
+  email           String?    @unique @db.VarChar(30)
+  bio             String?    @db.VarChar(120)
+  birthDate       DateTime?  @map("birth_date") @db.Date
+  accountSettings Json?      @map("account_settings")
+  profilePic      String?    @map("profile_pic")
+  coverPic        String?    @map("cover_pic")
+  verified        Boolean?
+  state           UserState?
+  bannedAt        DateTime?  @map("banned_at") @db.Timestamptz
+  banReason       String?    @map("ban_reason")
+  createdAt       DateTime?  @map("created_at") @db.Timestamptz
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  auth             UserAuth[]
+  posts            Post[]         @relation("PostAuthor")
+  comments         Comment[]      @relation("CommentAuthor")
+  likes            Like[]
+  favorites        Favorite[]
+  follows          Follow[]       @relation("Follower")
+  notifications    Notification[]
+  sentMessages     Message[]
+  conversations    Conversation[] @relation("ConversationCreator")
+  groupMemberships GroupMember[]
+  gameStaff        GameStaff[]
+  reportsFiled     Report[]       @relation("Reporter")
+  reportsResolved  Report[]       @relation("ReportResolver")
+
+  @@map("user")
+}
+
+model UserAuth {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  provider     String   @db.VarChar(30) // 'local' | 'google' | 'discord'
+  providerId   String?  @map("provider_id") @db.VarChar(255) // null for 'local', external ID for OAuth
+  passwordHash String?  @map("password_hash") @db.VarChar(255) // only for 'local', null for OAuth
+  refreshToken String?  @map("refresh_token") @db.VarChar(255)
+  createdAt    DateTime @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_auth")
+}
+
+model Follow {
+  id           String       @id @default(uuid()) @db.Uuid
+  followerId   String       @map("follower_id") @db.Uuid
+  followedId   String       @map("followed_id") @db.Uuid
+  followedType FolloweeType @map("followed_type")
+
+  follower User @relation("Follower", fields: [followerId], references: [id])
+
+  @@map("follows")
+}
+
+model Post {
+  id              String    @id @default(uuid()) @db.Uuid
+  author          String    @db.Uuid
+  originalPostId  String?   @map("original_post_id") @db.Uuid
+  title           String?
+  content         String? // markdown
+  media           Json? // urls for img, gif, videos
+  hashtags        String[]
+  isReview        Boolean?  @map("is_review")
+  isRepost        Boolean?  @map("is_repost")
+  reviewedGame    String?   @map("reviewed_game") @db.Uuid
+  reviewScore     Float?    @map("review_score")
+  likesCounter    Int?      @map("likes_counter")
+  commentsCounter Int?      @map("comments_counter")
+  createdAt       DateTime? @map("created_at") @db.Timestamptz
+  lastModifiedAt  DateTime? @map("last_modified_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+
+  // Self-relation for reposts
+  originalPost Post?  @relation("PostRepost", fields: [originalPostId], references: [id])
+  reposts      Post[] @relation("PostRepost")
+
+  // Relations
+  authorUser User       @relation("PostAuthor", fields: [author], references: [id])
+  game       Game?      @relation(fields: [reviewedGame], references: [id])
+  comments   Comment[]
+  likes      Like[]
+  favorites  Favorite[]
+
+  @@map("post")
+}
+
+model Comment {
+  id              String    @id @default(uuid()) @db.Uuid
+  parentId        String    @map("parent_id") @db.Uuid
+  commentParentId String?   @map("comment_parent_id") @db.Uuid // only if subcomment
+  author          String    @db.Uuid
+  content         String? // markdown
+  media           Json?
+  createdAt       DateTime? @map("created_at") @db.Timestamptz
+  lastModifiedAt  DateTime? @map("last_modified_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+
+  // Self-relation for subcomments
+  parentComment Comment?  @relation("CommentThread", fields: [commentParentId], references: [id])
+  subComments   Comment[] @relation("CommentThread")
+
+  // Relations
+  post       Post @relation(fields: [parentId], references: [id])
+  authorUser User @relation("CommentAuthor", fields: [author], references: [id])
+
+  @@map("comment")
+}
+
+model Game {
+  id                String @id @default(uuid()) @db.Uuid
+  metadata          Json? // extracted from IGDB
+  score             Int?
+  reviewRatingCount Int?   @map("review_rating_count")
+
+  // Relations
+  reviews Post[]
+  staff   GameStaff[]
+
+  @@map("game")
+}
+
+model GameStaff {
+  id         String  @id @default(uuid()) @db.Uuid
+  userId     String  @map("user_id") @db.Uuid
+  gameId     String  @map("game_id") @db.Uuid
+  staffTitle String? @map("staff_title") @db.VarChar(30)
+
+  user User @relation(fields: [userId], references: [id])
+  game Game @relation(fields: [gameId], references: [id])
+
+  @@map("game_staff")
+}
+
+model Like {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  postId String @map("post_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id])
+  post Post @relation(fields: [postId], references: [id])
+
+  @@map("likes")
+}
+
+model Favorite {
+  id       String       @id @default(uuid()) @db.Uuid
+  userId   String       @map("user_id") @db.Uuid
+  itemId   String       @map("item_id") @db.Uuid
+  itemType FavoriteType @map("item_type")
+
+  user User  @relation(fields: [userId], references: [id])
+  post Post? @relation(fields: [itemId], references: [id])
+
+  @@map("favorites")
+}
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
+
+model Message {
+  id             String      @id @default(uuid()) @db.Uuid
+  sentBy         String      @map("sent_by") @db.Uuid
+  conversationId String?     @map("conversation") @db.Uuid
+  replyToId      String?     @map("reply_to") @db.Uuid
+  type           MessageType
+  messageText    String?     @map("message_text")
+  attachedMedia  Json?       @map("attached_media") // urls
+  sentAt         DateTime?   @map("sent_at") @db.Timestamptz
+
+  // Self-relation for replies
+  replyTo Message?  @relation("MessageReply", fields: [replyToId], references: [id])
+  replies Message[] @relation("MessageReply")
+
+  // Relations
+  sender       User          @relation(fields: [sentBy], references: [id])
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+
+  @@map("message")
+}
+
+model Conversation {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String?   @db.VarChar(30)
+  groupPicture String?   @map("group_picture")
+  createdBy    String    @map("created_by") @db.Uuid
+  createdAt    DateTime? @map("created_at") @db.Timestamptz
+
+  // Relations
+  creator  User          @relation("ConversationCreator", fields: [createdBy], references: [id])
+  messages Message[]
+  members  GroupMember[]
+
+  @@map("conversation")
+}
+
+model GroupMember {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  conversationId String    @map("conversation") @db.Uuid
+  role           GroupRole
+  joinedAt       DateTime? @map("joined_at") @db.Timestamptz
+  leftAt         DateTime? @map("left_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@map("group_member")
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  type      EventType
+  payload   Json?
+  read      Boolean?
+  createdAt DateTime? @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notification")
+}
+
+// ─── MODERATION ───────────────────────────────────────────────────────────────
+
+model Report {
+  id          String        @id @default(uuid()) @db.Uuid
+  reporterId  String        @map("reporter_id") @db.Uuid
+  targetId    String        @map("target_id") @db.Uuid
+  targetType  ReportTarget  @map("target_type")
+  reason      ReportReason?
+  description String?
+  status      ReportStatus  @default(PENDING)
+  resolvedBy  String?       @map("resolved_by") @db.Uuid
+  resolvedAt  DateTime?     @map("resolved_at") @db.Timestamptz
+  createdAt   DateTime?     @map("created_at") @db.Timestamptz
+
+  reporter User  @relation("Reporter", fields: [reporterId], references: [id])
+  resolver User? @relation("ReportResolver", fields: [resolvedBy], references: [id])
+
+  @@map("reports")
+}

@@ -1,0 +1,56 @@
+## 🎫 Ticket 1 — INFRA/AUTH · Scaffold & Infraestructura Base
+
+**Asignado a:** Hanu
+
+**Descripción**
+Dejar el proyecto listo para que el resto del equipo pueda trabajar sobre una base sólida. Esto incluye la infraestructura, autenticación base y documentación.
+
+**Tareas**
+
+**Infraestructura**
+
+- [ ] Dockerizar los servicios: PostgreSQL, Meilisearch, Valkey, la API y Cloudinary
+- [ ] Asegurarse de que todos los servicios arrancan con un solo comando (`docker compose up`)
+
+**Base de datos**
+
+- [ ] Definir el schema completo de la base de datos en Prisma (todas las entidades del proyecto)
+- [ ] El schema debe estar acordado con el equipo antes de hacer merge
+- [ ] Definir el seed para prisma y verificar que funcione la migracion
+
+**API**
+
+- [ ] - El scaffold de NestJS ya está hecho, verificar que los módulos vacíos existentes compilan sin errores
+- [ ] - Montar Swagger en `/api` con autenticación Bearer configurada
+
+- [ ] - Implementar los endpoints:
+- [ ]   - `GET /health` — responde que el servidor está vivo
+- [ ]   - `POST /register` — registro básico de usuario (sin validaciones de datos por ahora, solo que el flujo JWT funcione)
+- [ ]   - `POST /refresh` — refresca el access token usando el refresh token
+- [ ]   - `POST /media` — subida de archivos a Cloudinary, devuelve la URL
+
+**Autenticación**
+
+- [ ] - Estrategia JWT implementada y funcionando (access token + refresh token)
+- [ ] - OAuth con Google es opcional, pero dejar la puerta abierta en el código si hay tiempo
+
+**Cliente**
+
+- [ ] - Conectar el cliente con `/register` y el flujo de tokens (guardar, refrescar automáticamente)
+
+**Documentación**
+
+- [ ] - Documentar en el README o wiki del repo: cómo levantar el entorno, variables de entorno necesarias, y las decisiones técnicas relevantes
+
+
+**Criterios de aceptación**
+
+- [ ] - `docker compose up` levanta todos los servicios sin errores
+- [ ] - El schema de Prisma está completo y las migraciones corren sin problemas
+- [ ] - `GET /health` responde `200 OK`
+- [ ] - `POST /register` crea un usuario y devuelve un access token y refresh token válidos
+- [ ] - `POST /refresh` con un refresh token válido devuelve un nuevo access token; con uno inválido o expirado devuelve `401`
+- [ ] - `POST /media` sube un archivo y devuelve una URL de Cloudinary; rechaza peticiones sin archivo con `400`
+- [ ] - Swagger disponible en `/api` y refleja todos los endpoints
+- [ ] - El cliente guarda los tokens correctamente y los refresca sin intervención del usuario cuando el access token expira
+- [ ] - Un desarrollador nuevo puede levantar el proyecto siguiendo la documentación sin pasos extra

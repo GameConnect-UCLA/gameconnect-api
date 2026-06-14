@@ -1,0 +1,115 @@
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../../prisma/prisma.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { RefreshDto } from './dto/refresh.dto';
+import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+    private config: ConfigService,
+  ) {}
+
+  async register(dto: RegisterDto): Promise<AuthResponseDto> {
+    const hash = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.user.create({
+      data: { email: dto.email, username: dto.username ?? null, state: 'ACTIVE', role: 'USER' },
+    });
+    const auth = await this.prisma.userAuth.create({
+      data: { userId: user.id, provider: 'local', passwordHash: hash, createdAt: new Date() },
+    });
+    const tokens = await this.generateTokens(user.id, auth.id);
+    await this.prisma.userAuth.update({ where: { id: auth.id }, data: { refreshToken: tokens.refreshToken } });
+    return { ...tokens, user: this.sanitizeUser(user) };
+  }
+
+  async login(dto: LoginDto): Promise<AuthResponseDto> {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (!user) throw new UnauthorizedException();
+
+    const auth = await this.prisma.userAuth.findFirst({
+      where: { userId: user.id, provider: 'local' },
+    });
+    if (!auth?.passwordHash) throw new UnauthorizedException();
+
+    const valid = await bcrypt.compare(dto.password, auth.passwordHash);
+    if (!valid) throw new UnauthorizedException();
+
+    const tokens = await this.generateTokens(user.id, auth.id);
+    await this.prisma.userAuth.update({ where: { id: auth.id }, data: { refreshToken: tokens.refreshToken } });
+    return { ...tokens, user: this.sanitizeUser(user) };
+  }
+
+  async refresh(dto: RefreshDto): Promise<AuthResponseDto> {
+    const payload = await this.jwt
+      .verifyAsync<{ sub: string; authId: string }>(dto.refreshToken, {
+        secret: this.config.get('JWT_REFRESH_SECRET') || this.config.get('JWT_SECRET'),
+      })
+      .catch(() => null);
+    if (!payload) throw new UnauthorizedException();
+
+    const auth = await this.prisma.userAuth.findFirst({ where: { refreshToken: dto.refreshToken } });
+    if (!auth) throw new UnauthorizedException();
+
+    const user = await this.prisma.user.findUnique({ where: { id: auth.userId } });
+    if (!user) throw new UnauthorizedException();
+
+    const tokens = await this.generateTokens(auth.userId, auth.id);
+    await this.prisma.userAuth.update({
+      where: { id: auth.id },
+      data: { refreshToken: tokens.refreshToken },
+    });
+    return { ...tokens, user: this.sanitizeUser(user) };
+  }
+
+  async logout(userId: string, refreshToken?: string) {
+    if (refreshToken) {
+      await this.prisma.userAuth.updateMany({
+        where: { refreshToken },
+        data: { refreshToken: null },
+      });
+    } else {
+      await this.prisma.userAuth.updateMany({
+        where: { userId },
+        data: { refreshToken: null },
+      });
+    }
+    return { success: true };
+  }
+
+  private sanitizeUser(user: any): UserResponseDto {
+    return {
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      email: user.email,
+      role: user.role,
+      state: user.state,
+      profilePic: user.profilePic,
+      verified: user.verified,
+    };
+  }
+
+  private async generateTokens(userId: string, authId: string) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwt.signAsync(
+        { sub: userId, authId },
+        { secret: this.config.get('JWT_SECRET'), expiresIn: this.config.get('JWT_EXPIRATION') },
+      ),
+      this.jwt.signAsync(
+        { sub: userId, authId },
+        {
+          secret: this.config.get('JWT_REFRESH_SECRET') || this.config.get('JWT_SECRET'),
+          expiresIn: this.config.get('JWT_REFRESH_EXPIRATION'),
+        },
+      ),
+    ]);
+    return { accessToken, refreshToken };
+  }
+}
