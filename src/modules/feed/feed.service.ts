@@ -1,14 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service'; // Ajusta la ruta si es necesario
+import { FeedParamsDto } from './dto/feed-params.dto';
 
 @Injectable()
 export class FeedService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getHomeFeed(userID: string, limit: number = 10, offset: number = 0): Promise<any[]> {
+  async getHomeFeed(dto: FeedParamsDto): Promise<any[]> {
+    try {
+        await this.prisma.user.findUnique({
+        where: { id: dto.userId },
+        select: { id: true },
+      });
+    } catch (error) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
     // id de los usuarios  que se siguen
     const following = await this.prisma.follow.findMany({
-      where: { followerId: userID },
+      where: { followerId: dto.userId },
       select: { followedId: true },
     });
     const followedIds = following.map((f) => f.followedId);
@@ -22,8 +32,8 @@ export class FeedService {
         deletedAt: null 
       },
       orderBy: { createdAt: 'desc' },
-      skip: offset,
-      take: limit,
+      skip: dto.offset,
+      take: dto.limit,
       include: {
         authorUser: {
           select: {
@@ -38,10 +48,10 @@ export class FeedService {
     feedPosts = [...followedPosts];
 
     // Busqueda por likes si ya se acabon los posts de los seguidos
-    /*
-    if (feedPosts.length < limit) {
-      const remainingLimit = limit - feedPosts.length;
-      const likesOffset = Math.max(0, offset - followedPosts.length);
+
+    if (feedPosts.length < dto.limit) {
+      const remainingLimit = dto.limit - feedPosts.length;
+      const likesOffset = Math.max(0, dto.offset - followedPosts.length);
 
       const popularByLikes = await this.prisma.post.findMany({
         where: {
@@ -66,9 +76,9 @@ export class FeedService {
     }
 
     // Busqueda por comentarios si ya se acabon los posts de los seguidos y los populares por likes
-    if (feedPosts.length < limit) {
-      const remainingLimit = limit - feedPosts.length;
-      const commentsOffset = Math.max(0, offset - feedPosts.length);
+    if (feedPosts.length < dto.limit) {
+      const remainingLimit = dto.limit - feedPosts.length;
+      const commentsOffset = Math.max(0, dto.offset - feedPosts.length);
 
       const popularByComments = await this.prisma.post.findMany({
         where: {
@@ -90,7 +100,11 @@ export class FeedService {
       });
 
       feedPosts = [...feedPosts, ...popularByComments];
-    }*/
+    }
+
+    if (feedPosts.length === 0) {
+      throw new NotFoundException('No se han encontrado resultados');
+    }
 
     return feedPosts;
   }
