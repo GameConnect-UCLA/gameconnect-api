@@ -1,8 +1,9 @@
 # ─── GameConnect API — Entorno de Desarrollo ─────────────────────────
-# Levanta PostgreSQL, Valkey, Meilisearch y la API NestJS con hot reload.
+# Levanta PostgreSQL, Valkey, Meilisearch, API NestJS y Prisma Studio.
 #
 # Uso:
 #   docker compose build api        # construir la imagen de desarrollo
+#   docker compose watch            # levantar + watch para hot reload
 #   docker compose up -d            # levantar todos los servicios
 #   docker compose exec api pnpm prisma migrate dev  # ejecutar migraciones
 #   docker compose exec api pnpm prisma db seed      # sembrar datos (opcional)
@@ -66,13 +67,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: dev # apunta al stage "dev" del Dockerfile
+      target: dev
     image: gameconnect-api
     container_name: gameconnect_api
     restart: unless-stopped
     env_file: .env
     environment:
-      # Override: dentro de Docker la DB se llama "postgres" (no localhost)
       DATABASE_URL: 'postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}'
     ports:
       - '3000:3000'
@@ -83,12 +83,33 @@ services:
         condition: service_healthy
       meilisearch:
         condition: service_healthy
-    volumes:
-      # Monta src/ para hot reload: cambios en código se reflejan al instante
-      - ./src:/app/src
-      # Monta prisma/ para reflejar cambios de schema sin rebuild
-      - ./prisma:/app/prisma
-    # CMD viene del Dockerfile (pnpm start:dev). No lo sobreescribimos.
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: sync
+          path: ./prisma
+          target: /app/prisma
+
+  # ── Prisma Studio ────────────────────────────────────────────────
+  studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    image: gameconnect-api
+    container_name: gameconnect_studio
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: 'postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}'
+    ports:
+      - '5555:5555'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ['pnpm', 'prisma', 'studio', '--port', '5555', '--browser', 'none']
 
 volumes:
   postgres_data:
