@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -17,9 +17,22 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
+    const existing = await this.prisma.user.findFirst({
+      where: { OR: [{ email: dto.email }, ...(dto.username ? [{ username: dto.username }] : [])] },
+    });
+    if (existing) {
+      if (existing.email === dto.email) throw new ConflictException('Email already registered');
+      throw new ConflictException('Username already taken');
+    }
     const hash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
-      data: { email: dto.email, username: dto.username ?? null, state: 'ACTIVE', role: 'USER' },
+      data: {
+        email: dto.email,
+        username: dto.username ?? null,
+        birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+        state: 'ACTIVE',
+        role: 'USER',
+      },
     });
     const auth = await this.prisma.userAuth.create({
       data: { userId: user.id, provider: 'local', passwordHash: hash, createdAt: new Date() },
@@ -89,10 +102,15 @@ export class AuthService {
       username: user.username,
       displayName: user.displayName,
       email: user.email,
+      bio: user.bio,
+      pronouns: user.pronouns,
+      birthDate: user.birthDate,
+      coverPic: user.coverPic,
       role: user.role,
       state: user.state,
       profilePic: user.profilePic,
       verified: user.verified,
+      createdAt: user.createdAt,
     };
   }
 
