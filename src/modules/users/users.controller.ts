@@ -9,7 +9,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 export class UsersController {
   constructor(private users: UsersService) {}
 
-  @Get('profile')
+  @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get authenticated user profile' })
@@ -17,7 +17,7 @@ export class UsersController {
     return this.users.findById(req.user.userId);
   }
 
-  @Patch('profile')
+  @Patch('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update authenticated user profile' })
