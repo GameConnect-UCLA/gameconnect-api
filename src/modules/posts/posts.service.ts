@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FeedPostResponseDto } from '../feed/dto/feed-response.dto';
+import { LikeResponseDto } from './dto/like-response.dto';
+import { LikePostDto } from './dto/like-post.dto';
 import { PostDetailResponseDto } from './dto/post-response.dto';
 import { PostIDto } from './dto/post.dto';
 import { PostsByUserParamsDto } from './dto/posts-by-user-params.dto';
@@ -8,6 +10,87 @@ import { PostsByUserParamsDto } from './dto/posts-by-user-params.dto';
 @Injectable()
 export class PostsService {
     constructor(private prisma: PrismaService) {}
+
+    async toggleLike(userId: string, dto: LikePostDto): Promise<LikeResponseDto> {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, username: true },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuario no encontrado');
+        }
+
+        const post = await this.prisma.post.findUnique({
+            where: { id: dto.postId },
+            select: { id: true, likesCounter: true },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        const existingLike = await this.prisma.like.findFirst({
+            where: {
+                userId,
+                postId: dto.postId,
+            },
+            select: { id: true },
+        });
+
+        if (existingLike) {
+            const updated = await this.prisma.$transaction(async (transaction) => {
+                await transaction.like.delete({
+                    where: { id: existingLike.id },
+                });
+
+                return transaction.post.update({
+                    where: { id: dto.postId },
+                    data: {
+                        likesCounter: {
+                            decrement: 1,
+                        },
+                    },
+                    select: { id: true, likesCounter: true },
+                });
+            });
+
+            return {
+                postId: updated.id,
+                userId,
+                username: user.username,
+                liked: false,
+                likesCounter: updated.likesCounter,
+            };
+        }
+
+        const updated = await this.prisma.$transaction(async (transaction) => {
+            await transaction.like.create({
+                data: {
+                    userId,
+                    postId: dto.postId,
+                },
+            });
+
+            return transaction.post.update({
+                where: { id: dto.postId },
+                data: {
+                    likesCounter: {
+                        increment: 1,
+                    },
+                },
+                select: { id: true, likesCounter: true },
+            });
+        });
+
+        return {
+            postId: updated.id,
+            userId,
+            username: user.username,
+            liked: true,
+            likesCounter: updated.likesCounter,
+        };
+    }
 
     async getPostsByUser(dto: PostsByUserParamsDto): Promise<FeedPostResponseDto[]> {
         const user = await this.prisma.user.findUnique({
