@@ -6,7 +6,7 @@ import { FeedParamsDto } from './dto/feed-params.dto';
 export class FeedService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getHomeFeed(dto: FeedParamsDto): Promise<any[]> {
+  async getHomeFeed(dto: FeedParamsDto){
     try {
         await this.prisma.user.findUnique({
         where: { id: dto.userId },

@@ -11,7 +11,7 @@ import { PostsByUserParamsDto } from './dto/posts-by-user-params.dto';
 export class PostsService {
     constructor(private prisma: PrismaService) {}
 
-    async toggleLike(userId: string, dto: LikePostDto): Promise<LikeResponseDto> {
+    async toggleLike(userId: string, dto: LikePostDto){
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             select: { id: true, username: true },
@@ -59,8 +59,7 @@ export class PostsService {
                 postId: updated.id,
                 userId,
                 username: user.username,
-                liked: false,
-                likesCounter: updated.likesCounter,
+                liked: false
             };
         }
 
@@ -87,12 +86,11 @@ export class PostsService {
             postId: updated.id,
             userId,
             username: user.username,
-            liked: true,
-            likesCounter: updated.likesCounter,
+            liked: true
         };
     }
 
-    async getPostsByUser(dto: PostsByUserParamsDto): Promise<FeedPostResponseDto[]> {
+    async getPostsByUser(dto: PostsByUserParamsDto) {
         const user = await this.prisma.user.findUnique({
             where: { id: dto.userId },
             select: { id: true },
@@ -125,30 +123,10 @@ export class PostsService {
             throw new NotFoundException('No se han encontrado resultados');
         }
 
-        return posts.map((post) => ({
-            id: post.id,
-            author: post.author,
-            originalPostId: post.originalPostId,
-            title: post.title,
-            content: post.content,
-            media: post.media,
-            hashtags: post.hashtags,
-            isReview: post.isReview,
-            isRepost: post.isRepost,
-            reviewedGame: post.reviewedGame,
-            reviewScore: post.reviewScore,
-            likesCounter: post.likesCounter,
-            commentsCounter: post.commentsCounter,
-            createdAt: post.createdAt,
-            lastModifiedAt: post.lastModifiedAt,
-            deletedAt: post.deletedAt,
-            authorUsername: post.authorUser.username,
-            authorDisplayName: post.authorUser.displayName,
-            authorProfilePic: post.authorUser.profilePic,
-        }));
+        return posts;
     }
 
-    async postDetails(dto: PostIDto): Promise<PostDetailResponseDto> {
+    async postDetails(dto: PostIDto) {
         const post = await this.prisma.post.findUnique({
             where: { id: dto.id },
             include: {
@@ -179,36 +157,6 @@ export class PostsService {
             throw new NotFoundException('Post not found');
         }
 
-        return {
-            id: post.id,
-            author: post.author,
-            originalPostId: post.originalPostId,
-            title: post.title,
-            content: post.content,
-            media: post.media,
-            hashtags: post.hashtags,
-            isReview: post.isReview,
-            isRepost: post.isRepost,
-            reviewedGame: post.reviewedGame,
-            reviewScore: post.reviewScore,
-            likesCounter: post.likesCounter,
-            commentsCounter: post.commentsCounter,
-            createdAt: post.createdAt,
-            lastModifiedAt: post.lastModifiedAt,
-            deletedAt: post.deletedAt,
-            authorUsername: post.authorUser.username,
-            authorDisplayName: post.authorUser.displayName,
-            authorProfilePic: post.authorUser.profilePic,
-            comments: post.comments.map((comment) => ({
-                id: comment.id,
-                parentId: comment.parentId,
-                commentParentId: comment.commentParentId,
-                content: comment.content,
-                createdAt: comment.createdAt,
-                authorUsername: comment.authorUser.username,
-                authorDisplayName: comment.authorUser.displayName,
-                authorProfilePic: comment.authorUser.profilePic,
-            })),
-        };
+        return post;
     }
 }

@@ -14,10 +14,9 @@ export class FeedController {
   @Get()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user feed' })
-  @ApiResponse({ status: 200, type: [FeedPostResponseDto] })
+  @ApiResponse({ status: 200, description: 'Feed retrieved successfully'})
   async getFeed(
-    @Query() dto: FeedParamsDto
-  ): Promise<FeedPostResponseDto[]> {
+    @Query() dto: FeedParamsDto){
     const userPosts = await this.feedService.getHomeFeed(dto);
     return userPosts
   }

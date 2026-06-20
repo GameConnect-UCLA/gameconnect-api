@@ -20,7 +20,7 @@ export class PostsController {
     @ApiOperation({ summary: 'Toggle like on a post' })
     @ApiOkResponse({ type: LikeResponseDto })
     @ApiResponse({ status: 404, description: 'User or post not found' })
-    async toggleLike(@Req() req: any, @Body() dto: LikePostDto): Promise<LikeResponseDto> {
+    async toggleLike(@Req() req: any, @Body() dto: LikePostDto){
         return this.postsService.toggleLike(req.user.userId, dto);
     }
 
@@ -29,7 +29,7 @@ export class PostsController {
     @ApiOperation({ summary: 'Get posts by user' })
     @ApiResponse({ status: 200, type: [FeedPostResponseDto] })
     @ApiResponse({ status: 404, description: 'Post not found' })
-    async getPostsByUser(@Query() dto: PostsByUserParamsDto): Promise<FeedPostResponseDto[]> {
+    async getPostsByUser(@Query() dto: PostsByUserParamsDto){
         const userPosts = await this.postsService.getPostsByUser(dto);
         return userPosts;
     }
@@ -39,7 +39,7 @@ export class PostsController {
     @ApiOperation({ summary: 'Get post details' })
     @ApiResponse({ status: 200, description: 'Post details retrieved successfully' })
     @ApiResponse({ status: 404, description: 'Post not found' })
-    async getPostDetails(@Param() dto: PostIDto): Promise<PostDetailResponseDto> {
+    async getPostDetails(@Param() dto: PostIDto){
         const postDetails = await this.postsService.postDetails(dto);
         return postDetails;
     }
