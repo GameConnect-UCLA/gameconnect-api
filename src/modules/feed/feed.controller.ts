@@ -15,9 +15,6 @@ export class FeedController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user feed' })
   @ApiResponse({ status: 200, type: [FeedPostResponseDto] })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'offset', required: false, type: Number })
-  @ApiQuery({ name: 'userId', required: false, type: String, description: 'UserID to obtain personal feed' })
   async getFeed(
     @Query() dto: FeedParamsDto
   ): Promise<FeedPostResponseDto[]> {

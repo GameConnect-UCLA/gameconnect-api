@@ -3,15 +3,15 @@ import { IsOptional, IsInt, IsUUID } from 'class-validator';
 
 export class FeedParamsDto {
 
-    @ApiProperty({ description: 'ID del usuario para obtener el feed' })
+    @ApiProperty({ required: true, description: 'ID from the user to get personal feed' })
     @IsUUID()
     userId: string;
 
-    @ApiProperty({ required: false, default: 10, minimum: 1 })
+    @ApiProperty({ required: true, default: 10, minimum: 1, description: 'Number of posts to return' })
     @IsInt()
     limit: number = 10;
 
-    @ApiProperty({ required: false, default: 0, minimum: 0 })
+    @ApiProperty({ required: true, default: 0, minimum: 0, description: 'Offset for pagination' })
     @IsInt()
     offset: number = 0;
 }

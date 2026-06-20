@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service'; // Ajusta la ruta si es necesario
+import { PrismaService } from '../../prisma/prisma.service';
 import { FeedParamsDto } from './dto/feed-params.dto';
 
 @Injectable()
