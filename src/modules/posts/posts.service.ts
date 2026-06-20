@@ -1,11 +1,69 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { FeedPostResponseDto } from '../feed/dto/feed-response.dto';
 import { PostDetailResponseDto } from './dto/post-response.dto';
 import { PostIDto } from './dto/post.dto';
+import { PostsByUserParamsDto } from './dto/posts-by-user-params.dto';
 
 @Injectable()
 export class PostsService {
     constructor(private prisma: PrismaService) {}
+
+    async getPostsByUser(dto: PostsByUserParamsDto): Promise<FeedPostResponseDto[]> {
+        const user = await this.prisma.user.findUnique({
+            where: { id: dto.userId },
+            select: { id: true },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuario no encontrado');
+        }
+
+        const posts = await this.prisma.post.findMany({
+            where: {
+                author: dto.userId,
+                deletedAt: null,
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: dto.offset,
+            take: dto.limit,
+            include: {
+                authorUser: {
+                    select: {
+                        username: true,
+                        displayName: true,
+                        profilePic: true,
+                    },
+                },
+            },
+        });
+
+        if (posts.length === 0) {
+            throw new NotFoundException('No se han encontrado resultados');
+        }
+
+        return posts.map((post) => ({
+            id: post.id,
+            author: post.author,
+            originalPostId: post.originalPostId,
+            title: post.title,
+            content: post.content,
+            media: post.media,
+            hashtags: post.hashtags,
+            isReview: post.isReview,
+            isRepost: post.isRepost,
+            reviewedGame: post.reviewedGame,
+            reviewScore: post.reviewScore,
+            likesCounter: post.likesCounter,
+            commentsCounter: post.commentsCounter,
+            createdAt: post.createdAt,
+            lastModifiedAt: post.lastModifiedAt,
+            deletedAt: post.deletedAt,
+            authorUsername: post.authorUser.username,
+            authorDisplayName: post.authorUser.displayName,
+            authorProfilePic: post.authorUser.profilePic,
+        }));
+    }
 
     async postDetails(dto: PostIDto): Promise<PostDetailResponseDto> {
         const post = await this.prisma.post.findUnique({
