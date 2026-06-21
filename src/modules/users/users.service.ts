@@ -23,6 +23,17 @@ export class UsersService {
         coverPic: true,
         verified: true,
         createdAt: true,
+        favoriteGames: {
+          select: {
+            id: true,
+            game: {
+              select: {
+                id: true,
+                metadata: true,
+              },
+            },
+          },
+        },
       },
     });
   }
