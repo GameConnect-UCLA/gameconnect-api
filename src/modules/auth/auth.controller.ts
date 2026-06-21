@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -11,17 +11,20 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 @ApiTags('Auth')
 @Controller()
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
   constructor(private auth: AuthService) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Register user' })
   register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
+    this.logger.log(dto);
     return this.auth.register(dto);
   }
 
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
   login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
+    this.logger.log(dto);
     return this.auth.login(dto);
   }
 
