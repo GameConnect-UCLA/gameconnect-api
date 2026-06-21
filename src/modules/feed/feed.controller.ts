@@ -1,5 +1,5 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { FeedService } from './feed.service';
 import { FeedPostResponseDto } from './dto/feed-response.dto';
 import { FeedParamsDto } from './dto/feed-params.dto';
@@ -16,8 +16,9 @@ export class FeedController {
   @ApiOperation({ summary: 'Get user feed' })
   @ApiResponse({ status: 200, description: 'Feed retrieved successfully'})
   async getFeed(
+    @Req() req: any,
     @Query() dto: FeedParamsDto){
-    const userPosts = await this.feedService.getHomeFeed(dto);
+    const userPosts = await this.feedService.getHomeFeed(req.user.userId, dto);
     return userPosts
   }
 }

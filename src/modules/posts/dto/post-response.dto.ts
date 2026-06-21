@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PostCommentResponseDto } from './post-comment-response.dto';
 
 export class PostDetailResponseDto {
   @ApiProperty()
@@ -59,8 +58,4 @@ export class PostDetailResponseDto {
 
   @ApiProperty({ nullable: true })
   authorProfilePic: string | null;
-
-  // arreglo de comentarios
-  @ApiProperty({ type: [PostCommentResponseDto] })
-  comments?: PostCommentResponseDto[];
 }

@@ -6,10 +6,10 @@ import { FeedParamsDto } from './dto/feed-params.dto';
 export class FeedService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getHomeFeed(dto: FeedParamsDto){
+  async getHomeFeed(userId: string, dto: FeedParamsDto){
     try {
         await this.prisma.user.findUnique({
-        where: { id: dto.userId },
+        where: { id: userId },
         select: { id: true },
       });
     } catch (error) {
@@ -18,7 +18,7 @@ export class FeedService {
 
     // id de los usuarios  que se siguen
     const following = await this.prisma.follow.findMany({
-      where: { followerId: dto.userId },
+      where: { followerId: userId },
       select: { followedId: true },
     });
     const followedIds = following.map((f) => f.followedId);
