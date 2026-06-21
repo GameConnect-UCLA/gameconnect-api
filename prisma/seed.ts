@@ -39,7 +39,7 @@ async function main() {
     data: { metadata: { name: 'The Legend of Zelda: Tears of the Kingdom', genre: 'Action-adventure' }, score: 96 },
   });
   const elden = await prisma.game.create({
-    data: { metadata: { name: 'Elden Ring', genre: 'Action RPG' }, score: 95 },
+    data: { metadata: { name: 'Elden Ring', genre: 'Action RPG', cover_url: 'https://cdn.mos.cms.futurecdn.net/vVYdoxvuFkZMMBweq2iMUD-970-80.jpg'}, score: 95 },
   });
 
   const post1 = await prisma.post.create({
@@ -86,6 +86,8 @@ async function main() {
       { userId: user.id, itemId: post4.id, itemType: 'POST' },
     ],
   });
+
+  await prisma.$executeRaw`INSERT INTO "favorite_game" ("id","user_id", "game_id") VALUES (${admin.id}, ${zelda.id})`;
 
   const conv = await prisma.conversation.create({
     data: { name: 'Gaming Squad', createdBy: admin.id, createdAt: new Date() },
