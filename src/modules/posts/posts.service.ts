@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { FeedPostResponseDto } from '../feed/dto/feed-response.dto';
 import { LikeResponseDto } from './dto/like-response.dto';
 import { LikePostDto } from './dto/like-post.dto';
+import { CreatePostDto } from './dto/create-post.dto';
 import { PostDetailResponseDto } from './dto/post-response.dto';
 import { PostIDto } from './dto/post.dto';
 import { PostCommentsQueryDto } from './dto/post-comments-query.dto';
@@ -12,6 +13,45 @@ import { UpdatePostContentDto } from './dto/update-post-content.dto';
 @Injectable()
 export class PostsService {
     constructor(private prisma: PrismaService) {}
+
+    async createPost(userId: string, dto: CreatePostDto) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuario no encontrado');
+        }
+
+        return this.prisma.post.create({
+            data: {
+                author: userId,
+                title: dto.title ?? null,
+                content: dto.content ?? null,
+                media: dto.media ?? null,
+                hashtags: dto.hashtags ?? [],
+                isReview: dto.isReview ?? null,
+                isRepost: dto.isRepost ?? null,
+                reviewedGame: dto.reviewedGame ?? null,
+                reviewScore: dto.reviewScore ?? null,
+                originalPostId: null,
+                likesCounter: 0,
+                commentsCounter: 0,
+                createdAt: new Date(),
+                lastModifiedAt: new Date(),
+            },
+            include: {
+                authorUser: {
+                    select: {
+                        username: true,
+                        displayName: true,
+                        profilePic: true,
+                    },
+                },
+            },
+        });
+    }
 
     async updatePostContent(userId: string, dto: PostIDto, body: UpdatePostContentDto) {
         const post = await this.prisma.post.findFirst({

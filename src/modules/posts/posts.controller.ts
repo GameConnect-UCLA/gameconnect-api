@@ -10,12 +10,22 @@ import { LikePostDto } from './dto/like-post.dto';
 import { LikeResponseDto } from './dto/like-response.dto';
 import { PostCommentsQueryDto } from './dto/post-comments-query.dto';
 import { UpdatePostContentDto } from './dto/update-post-content.dto';
+import { CreatePostDto } from './dto/create-post.dto';
 
 @ApiTags('Posts')
 @Controller('posts')
 @UseGuards(JwtAuthGuard)
 export class PostsController {
     constructor(private postsService: PostsService) {}
+
+    @Post()
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create post' })
+    @ApiResponse({ status: 201, description: 'Post created successfully' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async createPost(@Req() req: any, @Body() dto: CreatePostDto) {
+        return this.postsService.createPost(req.user.userId, dto);
+    }
 
     @Patch(':id')
     @ApiBearerAuth()
