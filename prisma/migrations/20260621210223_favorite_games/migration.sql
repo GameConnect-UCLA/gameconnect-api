@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "UserState" AS ENUM ('ACTIVE', 'TO_DELETE');
+CREATE TYPE "UserState" AS ENUM ('ACTIVE', 'TO_DELETE', 'BANNED', 'INACTIVE');
 
 -- CreateEnum
 CREATE TYPE "FavoriteType" AS ENUM ('POST', 'GAME');
@@ -8,7 +8,7 @@ CREATE TYPE "FavoriteType" AS ENUM ('POST', 'GAME');
 CREATE TYPE "GroupRole" AS ENUM ('OWNER', 'ADMIN', 'MEMBER');
 
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('MODERATOR', 'USER');
+CREATE TYPE "UserRole" AS ENUM ('MODERATOR', 'USER', 'ADMIN');
 
 -- CreateEnum
 CREATE TYPE "FolloweeType" AS ENUM ('USER', 'GAME');
@@ -58,6 +58,7 @@ CREATE TABLE "user_auth" (
     "provider" VARCHAR(30) NOT NULL,
     "provider_id" VARCHAR(255),
     "password_hash" VARCHAR(255),
+    "refresh_token" VARCHAR(255),
     "created_at" TIMESTAMPTZ NOT NULL,
 
     CONSTRAINT "user_auth_pkey" PRIMARY KEY ("id")
@@ -93,6 +94,16 @@ CREATE TABLE "post" (
     "deleted_at" TIMESTAMPTZ,
 
     CONSTRAINT "post_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "favorite_game" (
+    "id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
+    "game_id" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "favorite_game_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -215,7 +226,13 @@ CREATE TABLE "reports" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "user_username_key" ON "user"("username");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "user_email_key" ON "user"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "favorite_game_user_id_game_id_key" ON "favorite_game"("user_id", "game_id");
 
 -- AddForeignKey
 ALTER TABLE "user_auth" ADD CONSTRAINT "user_auth_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -231,6 +248,12 @@ ALTER TABLE "post" ADD CONSTRAINT "post_author_fkey" FOREIGN KEY ("author") REFE
 
 -- AddForeignKey
 ALTER TABLE "post" ADD CONSTRAINT "post_reviewed_game_fkey" FOREIGN KEY ("reviewed_game") REFERENCES "game"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "favorite_game" ADD CONSTRAINT "favorite_game_game_id_fkey" FOREIGN KEY ("game_id") REFERENCES "game"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "favorite_game" ADD CONSTRAINT "favorite_game_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "comment" ADD CONSTRAINT "comment_comment_parent_id_fkey" FOREIGN KEY ("comment_parent_id") REFERENCES "comment"("id") ON DELETE SET NULL ON UPDATE CASCADE;

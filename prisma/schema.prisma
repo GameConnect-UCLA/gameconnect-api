@@ -111,6 +111,7 @@ model User {
   gameStaff        GameStaff[]
   reportsFiled     Report[]       @relation("Reporter")
   reportsResolved  Report[]       @relation("ReportResolver")
+  favoriteGames FavoriteGame[]
 
   @@map("user")
 }
@@ -172,6 +173,21 @@ model Post {
   @@map("post")
 }
 
+model FavoriteGame {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  gameId    String    @map("game_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relaciones (La contraparte debe estar en User y Game)
+  game      Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId]) // Evita que un usuario agregue el mismo juego dos veces a favoritos
+  @@map("favorite_game")
+}
+
+
 model Comment {
   id              String    @id @default(uuid()) @db.Uuid
   parentId        String    @map("parent_id") @db.Uuid
@@ -203,6 +219,7 @@ model Game {
   // Relations
   reviews Post[]
   staff   GameStaff[]
+  favoritedBy FavoriteGame[]
 
   @@map("game")
 }

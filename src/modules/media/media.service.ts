@@ -35,4 +35,28 @@ export class MediaService {
 
     return { url: urlData.publicUrl };
   }
+
+  async remove(supabaseFileId: string) {
+    /** 
+     * Checar: gameconnect-api/node_modules/.pnpm/@supabase+storage-js@2.108.1/node_modules/@supabase/storage-js/src/packages/StorageFileApi.ts
+     * 
+     GET supabase storage file path filePath = 
+     use supabase storage remove:
+    @example Delete file
+   * ```js
+   * const { data, error } = await supabase
+   *   .storage
+   *   .from('avatars')
+   *   .remove(['folder/avatar1.png'])
+   * ```
+   *
+   * Response:
+   * ```json
+   * {
+   *   "data": [],
+   *   "error": null
+   * }
+     */
+
+  }
 }
