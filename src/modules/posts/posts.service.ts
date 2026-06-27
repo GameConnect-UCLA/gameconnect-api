@@ -6,6 +6,8 @@ import { PostIDto } from './dto/post.dto';
 import { CreateCommentDto, PostCommentsQueryDto } from './dto/post-comments-query.dto';
 import { PostsByUserParamsDto } from './dto/posts-by-user-params.dto';
 import { UpdatePostContentDto } from './dto/update-post-content.dto';
+import { BookmarksQueryDto } from './dto/bookmarks-query.dto';
+import { FavoriteType } from '../../generated/prisma/enums';
 
 @Injectable()
 export class PostsService {
@@ -312,5 +314,101 @@ export class PostsService {
         }
 
         return post;
+    }
+
+    async toggleBookmark(userId: string, postId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuario no encontrado');
+        }
+
+        const post = await this.prisma.post.findFirst({
+            where: { id: postId, deletedAt: null },
+            select: { id: true },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        const existingFavorite = await this.prisma.favorite.findFirst({
+            where: {
+                userId,
+                itemId: postId,
+                itemType: FavoriteType.POST,
+            },
+            select: { id: true },
+        });
+
+        if (existingFavorite) {
+            await this.prisma.favorite.delete({
+                where: { id: existingFavorite.id },
+            });
+
+            return {
+                postId,
+                userId,
+                bookmarked: false,
+            };
+        }
+
+        await this.prisma.favorite.create({
+            data: {
+                userId,
+                itemId: postId,
+                itemType: FavoriteType.POST,
+            },
+        });
+
+        return {
+            postId,
+            userId,
+            bookmarked: true,
+        };
+    }
+
+    async getBookmarkedPosts(userId: string, query: BookmarksQueryDto) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuario no encontrado');
+        }
+
+        const posts = await this.prisma.post.findMany({
+            where: {
+                deletedAt: null,
+                favorites: {
+                    some: {
+                        userId,
+                        itemType: FavoriteType.POST,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: query.offset,
+            take: query.limit,
+            include: {
+                authorUser: {
+                    select: {
+                        username: true,
+                        displayName: true,
+                        profilePic: true,
+                    },
+                },
+            },
+        });
+
+        if (posts.length === 0) {
+            throw new NotFoundException('No se han encontrado posts favoritos');
+        }
+
+        return posts;
     }
 }

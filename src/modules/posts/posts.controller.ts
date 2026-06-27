@@ -8,6 +8,7 @@ import { LikePostDto } from './dto/like-post.dto';
 import { CreateCommentDto, PostCommentsQueryDto } from './dto/post-comments-query.dto';
 import { UpdatePostContentDto } from './dto/update-post-content.dto';
 import { CreatePostDto } from './dto/create-post.dto';
+import { BookmarksQueryDto } from './dto/bookmarks-query.dto';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -41,6 +42,15 @@ export class PostsController {
         return this.postsService.createComment(req.user.userId, dto, body);
     }
 
+    @Post(':id/bookmark')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Toggle bookmark on a post' })
+    @ApiResponse({ status: 200, description: 'Post bookmarked/unbookmarked successfully' })
+    @ApiResponse({ status: 404, description: 'User or post not found' })
+    async toggleBookmark(@Req() req: any, @Param() dto: PostIDto) {
+        return this.postsService.toggleBookmark(req.user.userId, dto.id);
+    }
+
     @Patch(':id')
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update post content (within 24h by author only)' })
@@ -61,6 +71,15 @@ export class PostsController {
         @Query() query: PostCommentsQueryDto,
     ){
         return this.postsService.getPostComments(dto, query);
+    }
+
+    @Get('bookmarks')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get user bookmarked posts' })
+    @ApiResponse({ status: 200, description: 'Bookmarked posts retrieved successfully' })
+    @ApiResponse({ status: 404, description: 'No bookmarked posts found' })
+    async getBookmarkedPosts(@Req() req: any, @Query() dto: BookmarksQueryDto) {
+        return this.postsService.getBookmarkedPosts(req.user.userId, dto);
     }
 
     @Get('user')
