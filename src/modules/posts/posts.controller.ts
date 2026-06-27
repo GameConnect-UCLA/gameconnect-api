@@ -3,12 +3,9 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOkResponse } from
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PostsService } from './posts.service';
 import { PostIDto } from './dto/post.dto';
-import { PostDetailResponseDto } from './dto/post-response.dto';
-import { FeedPostResponseDto } from '../feed/dto/feed-response.dto';
 import { PostsByUserParamsDto } from './dto/posts-by-user-params.dto';
 import { LikePostDto } from './dto/like-post.dto';
-import { LikeResponseDto } from './dto/like-response.dto';
-import { PostCommentsQueryDto } from './dto/post-comments-query.dto';
+import { CreateCommentDto, PostCommentsQueryDto } from './dto/post-comments-query.dto';
 import { UpdatePostContentDto } from './dto/update-post-content.dto';
 import { CreatePostDto } from './dto/create-post.dto';
 
@@ -27,6 +24,23 @@ export class PostsController {
         return this.postsService.createPost(req.user.userId, dto);
     }
 
+    @Post('like')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Toggle like on a post' })
+    @ApiResponse({ status: 404, description: 'User or post not found' })
+    async toggleLike(@Req() req: any, @Body() dto: LikePostDto){
+        return this.postsService.toggleLike(req.user.userId, dto);
+    }
+
+    @Post(':id/comment')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create comment on a post' })
+    @ApiResponse({ status: 201, description: 'Comment created successfully' })
+    @ApiResponse({ status: 404, description: 'User or post not found' })
+    async createComment(@Req() req: any, @Param() dto: PostIDto, @Body() body: CreateCommentDto) {
+        return this.postsService.createComment(req.user.userId, dto, body);
+    }
+
     @Patch(':id')
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update post content (within 24h by author only)' })
@@ -35,15 +49,6 @@ export class PostsController {
     @ApiResponse({ status: 404, description: 'Post not found' })
     async updatePostContent(@Req() req: any, @Param() dto: PostIDto, @Body() body: UpdatePostContentDto) {
         return this.postsService.updatePostContent(req.user.userId, dto, body);
-    }
-
-    @Post('like')
-    @ApiBearerAuth()
-    @ApiOperation({ summary: 'Toggle like on a post' })
-    @ApiOkResponse({ type: LikeResponseDto })
-    @ApiResponse({ status: 404, description: 'User or post not found' })
-    async toggleLike(@Req() req: any, @Body() dto: LikePostDto){
-        return this.postsService.toggleLike(req.user.userId, dto);
     }
 
     @Get(':id/comments')
@@ -61,7 +66,6 @@ export class PostsController {
     @Get('user')
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get posts by user' })
-    @ApiResponse({ status: 200, type: [FeedPostResponseDto] })
     @ApiResponse({ status: 404, description: 'Post not found' })
     async getPostsByUser(@Query() dto: PostsByUserParamsDto){
         const userPosts = await this.postsService.getPostsByUser(dto);

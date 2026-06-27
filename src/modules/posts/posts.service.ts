@@ -1,18 +1,15 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { FeedPostResponseDto } from '../feed/dto/feed-response.dto';
-import { LikeResponseDto } from './dto/like-response.dto';
 import { LikePostDto } from './dto/like-post.dto';
 import { CreatePostDto } from './dto/create-post.dto';
-import { PostDetailResponseDto } from './dto/post-response.dto';
 import { PostIDto } from './dto/post.dto';
-import { PostCommentsQueryDto } from './dto/post-comments-query.dto';
+import { CreateCommentDto, PostCommentsQueryDto } from './dto/post-comments-query.dto';
 import { PostsByUserParamsDto } from './dto/posts-by-user-params.dto';
 import { UpdatePostContentDto } from './dto/update-post-content.dto';
 
 @Injectable()
 export class PostsService {
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService) { }
 
     async createPost(userId: string, dto: CreatePostDto) {
         const user = await this.prisma.user.findUnique({
@@ -102,7 +99,50 @@ export class PostsService {
         });
     }
 
-    async toggleLike(userId: string, dto: LikePostDto){
+    async createComment(userId: string, dto: PostIDto, body: CreateCommentDto) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuario no encontrado');
+        }
+
+        const post = await this.prisma.post.findUnique({
+            where: { id: dto.id },
+            select: { id: true },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        return this.prisma.$transaction(async (tx) => {
+            const comment = await tx.comment.create({
+                data: {
+                    author: userId,
+                    parentId: dto.id,
+                    content: body.content,
+                    media: body.media,
+                },
+                select: { id: true, author: true, parentId: true, content: true, media: true },
+            });
+
+            await tx.post.update({
+                where: { id: dto.id },
+                data: {
+                    commentsCounter: {
+                        increment: 1,
+                    },
+                },
+            });
+
+            return comment;
+        });
+    }
+
+    async toggleLike(userId: string, dto: LikePostDto) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             select: { id: true, username: true },
