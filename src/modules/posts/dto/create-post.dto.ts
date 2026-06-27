@@ -54,6 +54,7 @@ export class CreatePostDto {
   @ValidateIf((dto) => dto.isReview === true || dto.reviewedGame !== undefined)
   @IsDefined({ message: 'reviewedGame is required when isReview is true' })
   @IsUUID()
+  @IsOptional()
   reviewedGame?: string;
 
   @ApiProperty({
@@ -61,6 +62,7 @@ export class CreatePostDto {
     example: 8,
     description: 'Required when isReview is true',
   })
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(10) // Ajusta el máximo según la escala de GameConnect
