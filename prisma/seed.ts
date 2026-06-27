@@ -87,7 +87,7 @@ async function main() {
     ],
   });
 
-  await prisma.$executeRaw`INSERT INTO "favorite_game" ("id","user_id", "game_id") VALUES (${admin.id}, ${zelda.id})`;
+  await prisma.favoriteGame.create({ data: { userId: admin.id, gameId: zelda.id } });
 
   const conv = await prisma.conversation.create({
     data: { name: 'Gaming Squad', createdBy: admin.id, createdAt: new Date() },
