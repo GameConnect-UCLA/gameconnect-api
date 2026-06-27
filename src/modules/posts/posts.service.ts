@@ -14,14 +14,7 @@ export class PostsService {
     constructor(private prisma: PrismaService) { }
 
     async createPost(userId: string, dto: CreatePostDto) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true },
-        });
-
-        if (!user) {
-            throw new NotFoundException('Usuario no encontrado');
-        }
+        await this.checkUserExists(userId);
 
         return this.prisma.post.create({
             data: {
@@ -102,23 +95,8 @@ export class PostsService {
     }
 
     async createComment(userId: string, dto: PostIDto, body: CreateCommentDto) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true },
-        });
-
-        if (!user) {
-            throw new NotFoundException('Usuario no encontrado');
-        }
-
-        const post = await this.prisma.post.findUnique({
-            where: { id: dto.id },
-            select: { id: true },
-        });
-
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
+        await this.checkUserExists(userId);
+        await this.checkPostExists(dto.id);
 
         return this.prisma.$transaction(async (tx) => {
             const comment = await tx.comment.create({
@@ -145,23 +123,8 @@ export class PostsService {
     }
 
     async toggleLike(userId: string, dto: LikePostDto) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true, username: true },
-        });
-
-        if (!user) {
-            throw new NotFoundException('Usuario no encontrado');
-        }
-
-        const post = await this.prisma.post.findUnique({
-            where: { id: dto.postId },
-            select: { id: true, likesCounter: true },
-        });
-
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
+        const user = await this.checkUserExists(userId);
+        await this.checkPostExists(dto.postId);
 
         const existingLike = await this.prisma.like.findFirst({
             where: {
@@ -224,14 +187,7 @@ export class PostsService {
     }
 
     async getPostsByUser(dto: PostsByUserParamsDto) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: dto.userId },
-            select: { id: true },
-        });
-
-        if (!user) {
-            throw new NotFoundException('Usuario no encontrado');
-        }
+        await this.checkUserExists(dto.userId);
 
         const posts = await this.prisma.post.findMany({
             where: {
@@ -260,14 +216,7 @@ export class PostsService {
     }
 
     async getPostComments(dto: PostIDto, query: PostCommentsQueryDto): Promise<any[]> {
-        const post = await this.prisma.post.findUnique({
-            where: { id: dto.id },
-            select: { id: true },
-        });
-
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
+        await this.checkPostExists(dto.id);
 
         const comments = await this.prisma.comment.findMany({
             where: {
@@ -317,23 +266,8 @@ export class PostsService {
     }
 
     async toggleBookmark(userId: string, postId: string) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true },
-        });
-
-        if (!user) {
-            throw new NotFoundException('Usuario no encontrado');
-        }
-
-        const post = await this.prisma.post.findFirst({
-            where: { id: postId, deletedAt: null },
-            select: { id: true },
-        });
-
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
+        await this.checkUserExists(userId);
+        await this.checkPostExists(postId, true);
 
         const existingFavorite = await this.prisma.favorite.findFirst({
             where: {
@@ -372,14 +306,7 @@ export class PostsService {
     }
 
     async getBookmarkedPosts(userId: string, query: BookmarksQueryDto) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true },
-        });
-
-        if (!user) {
-            throw new NotFoundException('Usuario no encontrado');
-        }
+        await this.checkUserExists(userId);
 
         const posts = await this.prisma.post.findMany({
             where: {
@@ -410,5 +337,32 @@ export class PostsService {
         }
 
         return posts;
+    }
+
+    private async checkUserExists(userId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, username: true },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuario no encontrado');
+        }
+        return user;
+    }
+
+    private async checkPostExists(postId: string, checkDeleted = false) {
+        const post = await this.prisma.post.findFirst({
+            where: {
+                id: postId,
+                ...(checkDeleted ? { deletedAt: null } : {}),
+            },
+            select: { id: true },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+        return post;
     }
 }

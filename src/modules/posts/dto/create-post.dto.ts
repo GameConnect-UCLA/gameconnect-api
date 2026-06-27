@@ -1,16 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { 
-  IsString, 
-  IsOptional, 
-  IsArray, 
-  IsBoolean, 
-  IsNumber, 
-  IsUUID, 
-  Min, 
-  Max, 
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  IsNumber,
+  IsUUID,
+  Min,
+  Max,
   IsObject,
   ValidateIf,
-  IsDefined,
+  IsDefined
 } from 'class-validator';
 
 export class CreatePostDto {
@@ -65,7 +65,7 @@ export class CreatePostDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @Max(10) // Ajusta el máximo según la escala de GameConnect
+  @Max(10)
   reviewScore?: number;
 
   @ApiProperty({ required: false, example: false })
