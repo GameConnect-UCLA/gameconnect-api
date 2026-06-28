@@ -346,16 +346,10 @@ export class PostsService {
 
         const urlsToDelete: string[] = [];
         if (post.media && typeof post.media === 'object') {
-            const mediaObj = post.media as any;
+            const mediaObj = post.media as { urls?: string[] };
             if (Array.isArray(mediaObj.urls)) {
-                for (const u of mediaObj.urls) {
-                    if (typeof u === 'string') urlsToDelete.push(u);
-                }
-            } else if (typeof mediaObj.url === 'string') {
-                urlsToDelete.push(mediaObj.url);
+                urlsToDelete.push(...mediaObj.urls);
             }
-        } else if (typeof post.media === 'string') {
-            urlsToDelete.push(post.media);
         }
 
         for (const url of urlsToDelete) {
