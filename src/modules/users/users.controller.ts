@@ -14,7 +14,9 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get authenticated user profile' })
   async getProfile(@Req() req: any) {
-    return this.users.findById(req.user.userId);
+    const res = await this.users.findById(req.user.userId);
+    console.log(res)
+    return res
   }
 
   @Patch('me')
