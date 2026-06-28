@@ -1,4 +1,4 @@
-import { Body, Controller, UseGuards, Param, Get, Query, Post, Req, Patch } from '@nestjs/common';
+import { Body, Controller, UseGuards, Param, Get, Query, Post, Req, Patch, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOkResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PostsService } from './posts.service';
@@ -99,5 +99,15 @@ export class PostsController {
     async getPostDetails(@Param() dto: PostIDto){
         const postDetails = await this.postsService.postDetails(dto);
         return postDetails;
+    }
+
+    @Delete(':id')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Delete post and its associated assets' })
+    @ApiResponse({ status: 200, description: 'Post and associated assets deleted successfully' })
+    @ApiResponse({ status: 403, description: 'Only the author can delete this post or 24h window expired' })
+    @ApiResponse({ status: 404, description: 'Post not found' })
+    async deletePost(@Req() req: any, @Param() dto: PostIDto) {
+        return this.postsService.deletePost(req.user.userId, dto.id);
     }
 }

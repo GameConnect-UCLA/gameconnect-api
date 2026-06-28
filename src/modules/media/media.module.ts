@@ -6,5 +6,6 @@ import { SupabaseProvider } from './supabase.provider';
 @Module({
   providers: [SupabaseProvider, MediaService],
   controllers: [MediaController],
+  exports: [MediaService],
 })
 export class MediaModule {}
