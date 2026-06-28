@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
-import "dotenv/config"
-=======
 import "dotenv/config";
->>>>>>> Stashed changes
 import { defineConfig } from "prisma/config";
 
 
