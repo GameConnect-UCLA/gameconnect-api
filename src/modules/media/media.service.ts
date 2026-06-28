@@ -46,6 +46,10 @@ export class MediaService {
       filePath = supabaseFileId.substring(prefixIndex + bucketPublicUrlPrefix.length);
     }
 
+    // Decodificar los caracteres de URL, como '%20' a espacios reales,
+    // ya que Supabase requiere el nombre del archivo original sin encodificar
+    filePath = decodeURI(filePath);
+
     const { data, error } = await this.supabase.storage
       .from(this.bucket)
       .remove([filePath]);
