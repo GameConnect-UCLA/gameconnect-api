@@ -7,6 +7,7 @@ import { MediaModule } from '../media/media.module';
 @Module({
   imports: [AuthModule, MediaModule],
   controllers: [PostsController],
-  providers: [PostsService]
+  providers: [PostsService],
+  exports: [PostsService],
 })
 export class PostsModule {}

@@ -380,27 +380,7 @@ async function main() {
     ],
   });
 
-  await prisma.favoriteGame.createMany({
-    data: [
-      { userId: user.id, gameId: elden.id },
-      { userId: user.id, gameId: zelda.id },
-      { userId: streamer.id, gameId: elden.id },
-      { userId: streamer.id, gameId: hades.id },
-      { userId: reviewer.id, gameId: bg3.id },
-      { userId: reviewer.id, gameId: hades.id },
-      { userId: collector.id, gameId: zelda.id },
-      { userId: collector.id, gameId: bg3.id },
-    ],
-  });
-
-  await prisma.post.update({ where: { id: post1.id }, data: { likesCounter: 3, commentsCounter: 1 } });
-  await prisma.post.update({ where: { id: post2.id }, data: { likesCounter: 1, commentsCounter: 3 } });
-  await prisma.post.update({ where: { id: post3.id }, data: { likesCounter: 0, commentsCounter: 0 } });
-  await prisma.post.update({ where: { id: post4.id }, data: { likesCounter: 1, commentsCounter: 0 } });
-  await prisma.post.update({ where: { id: post5.id }, data: { likesCounter: 2, commentsCounter: 2 } });
-  await prisma.post.update({ where: { id: post6.id }, data: { likesCounter: 2, commentsCounter: 2 } });
-  await prisma.post.update({ where: { id: post7.id }, data: { likesCounter: 0, commentsCounter: 0 } });
-
+  await prisma.favoriteGame.create({ data: { userId: admin.id, gameId: zelda.id } });
 
   const conv = await prisma.conversation.create({
     data: { name: 'Gaming Squad', createdBy: admin.id, createdAt: new Date() },
