@@ -36,27 +36,28 @@ export class MediaService {
     return { url: urlData.publicUrl };
   }
 
-  async remove(supabaseFileId: string) {
-    /** 
-     * Checar: gameconnect-api/node_modules/.pnpm/@supabase+storage-js@2.108.1/node_modules/@supabase/storage-js/src/packages/StorageFileApi.ts
-     * 
-     GET supabase storage file path filePath = 
-     use supabase storage remove:
-    @example Delete file
-   * ```js
-   * const { data, error } = await supabase
-   *   .storage
-   *   .from('avatars')
-   *   .remove(['folder/avatar1.png'])
-   * ```
-   *
-   * Response:
-   * ```json
-   * {
-   *   "data": [],
-   *   "error": null
-   * }
-     */
+  async remove(supabaseFileId: string): Promise<any> {
+    let filePath = supabaseFileId;
 
+    // Si es una URL completa, extraemos la ruta del archivo relativa al bucket
+    const bucketPublicUrlPrefix = `public/${this.bucket}/`;
+    const prefixIndex = supabaseFileId.indexOf(bucketPublicUrlPrefix);
+    if (prefixIndex !== -1) {
+      filePath = supabaseFileId.substring(prefixIndex + bucketPublicUrlPrefix.length);
+    }
+
+    // Decodificar los caracteres de URL, como '%20' a espacios reales,
+    // ya que Supabase requiere el nombre del archivo original sin encodificar
+    filePath = decodeURI(filePath);
+
+    const { data, error } = await this.supabase.storage
+      .from(this.bucket)
+      .remove([filePath]);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
   }
 }

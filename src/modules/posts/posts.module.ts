@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
 import { AuthModule } from '../auth/auth.module';
+import { MediaModule } from '../media/media.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, MediaModule],
   controllers: [PostsController],
-  providers: [PostsService]
+  providers: [PostsService],
+  exports: [PostsService],
 })
 export class PostsModule {}

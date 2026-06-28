@@ -1,16 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { 
-  IsString, 
-  IsOptional, 
-  IsArray, 
-  IsBoolean, 
-  IsNumber, 
-  IsUUID, 
-  Min, 
-  Max, 
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  IsNumber,
+  IsUUID,
+  Min,
+  Max,
   IsObject,
   ValidateIf,
-  IsDefined,
+  IsDefined
 } from 'class-validator';
 
 export class CreatePostDto {
@@ -28,7 +28,7 @@ export class CreatePostDto {
     required: false,
     description: 'Media object returned by upload endpoint',
     example: {
-      url: 'https://zblamazxjzfgvnguugcb.supabase.co/storage/v1/object/public/gameconnect-storage/uploads/047b8fb6-11df-41d9-a31a-ca7528818a33-b0b5d660dabc4a89d26b49cd815e4368973da881_full.jpg',
+      urls: ['https://zblamazxjzfgvnguugcb.supabase.co/storage/v1/object/public/gameconnect-storage/uploads/e4376d10-9b24-4a82-9eeb-feb2d91fd943-stocking.jpg']
     },
   })
   @IsObject()
@@ -65,7 +65,7 @@ export class CreatePostDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @Max(10) // Ajusta el máximo según la escala de GameConnect
+  @Max(10)
   reviewScore?: number;
 
   @ApiProperty({ required: false, example: false })
