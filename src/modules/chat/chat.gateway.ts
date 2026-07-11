@@ -16,6 +16,8 @@ interface JwtPayload {
   authId: string;
 }
 
+type AuthSocket = Socket & { userId: string };
+
 @WebSocketGateway({
   cors: { origin: '*' },
   namespace: '/',
@@ -23,6 +25,8 @@ interface JwtPayload {
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
+
+  private onlineUsers = new Map<string, Set<string>>();
 
   constructor(
     private jwtService: JwtService,
@@ -39,17 +43,44 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       const payload: JwtPayload = this.jwtService.verify(token);
-      (client as Socket & { userId: string }).userId = payload.sub;
+      (client as AuthSocket).userId = payload.sub;
+      this.addOnlineUser(payload.sub, client.id);
     } catch {
       client.disconnect();
     }
   }
 
-  handleDisconnect() {}
+  handleDisconnect(client: Socket) {
+    const userId = (client as AuthSocket).userId;
+    if (userId) {
+      this.removeOnlineUser(userId, client.id);
+    }
+  }
+
+  private addOnlineUser(userId: string, socketId: string) {
+    const sockets = this.onlineUsers.get(userId);
+    if (!sockets || sockets.size === 0) {
+      this.onlineUsers.set(userId, new Set([socketId]));
+      this.server.emit('user:online', { userId });
+    } else {
+      sockets.add(socketId);
+    }
+  }
+
+  private removeOnlineUser(userId: string, socketId: string) {
+    const sockets = this.onlineUsers.get(userId);
+    if (!sockets) return;
+
+    sockets.delete(socketId);
+    if (sockets.size === 0) {
+      this.onlineUsers.delete(userId);
+      this.server.emit('user:offline', { userId });
+    }
+  }
 
   @SubscribeMessage('room:join')
   async handleRoomJoin(
-    @ConnectedSocket() client: Socket & { userId: string },
+    @ConnectedSocket() client: AuthSocket,
     @MessageBody() data: { conversation_id: string },
   ) {
     try {
@@ -62,7 +93,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('room:leave')
   handleRoomLeave(
-    @ConnectedSocket() client: Socket & { userId: string },
+    @ConnectedSocket() client: AuthSocket,
     @MessageBody() data: { conversation_id: string },
   ) {
     void client.leave(data.conversation_id);
@@ -70,7 +101,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('message:send')
   async handleMessageSend(
-    @ConnectedSocket() client: Socket & { userId: string },
+    @ConnectedSocket() client: AuthSocket,
     @MessageBody()
     data: {
       conversation_id: string;
@@ -101,6 +132,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('error', {
         message: err instanceof Error ? err.message : 'Failed to send message',
       });
+    }
+  }
+
+  @SubscribeMessage('typing:start')
+  async handleTypingStart(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() data: { conversation_id: string },
+  ) {
+    try {
+      await this.chatService.ensureMember(data.conversation_id, client.userId);
+      client
+        .to(data.conversation_id)
+        .emit('typing:update', { userId: client.userId, isTyping: true });
+    } catch {
+      client.emit('error', { message: 'Cannot send typing event' });
+    }
+  }
+
+  @SubscribeMessage('typing:stop')
+  async handleTypingStop(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() data: { conversation_id: string },
+  ) {
+    try {
+      await this.chatService.ensureMember(data.conversation_id, client.userId);
+      client
+        .to(data.conversation_id)
+        .emit('typing:update', { userId: client.userId, isTyping: false });
+    } catch {
+      client.emit('error', { message: 'Cannot send typing event' });
     }
   }
 }

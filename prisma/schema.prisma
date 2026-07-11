@@ -274,7 +274,7 @@ model Message {
   type           MessageType
   messageText    String?     @map("message_text")
   attachedMedia  Json?       @map("attached_media") // urls
-  sentAt         DateTime?   @map("sent_at") @db.Timestamptz
+  sentAt         DateTime?   @default(now()) @map("sent_at") @db.Timestamptz
 
   // Self-relation for replies
   replyTo Message?  @relation("MessageReply", fields: [replyToId], references: [id])
