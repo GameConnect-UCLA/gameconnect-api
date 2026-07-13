@@ -165,6 +165,43 @@ async forgotPassword(email: string) {
     return { success: true };
   }
 
+  async resetPassword(dto: any) { // Cambia 'any' por tu ResetPasswordDto si ya lo tienes creado
+    const cacheKey = `reset:${dto.email}`;
+    
+    // 1. Obtener el código almacenado de la caché administrada por Keyv
+    const savedCode = await this.cacheManager.get(cacheKey);
+
+    if (!savedCode || savedCode !== dto.code) {
+      throw new UnauthorizedException('El código de verificación es inválido o ha expirado.');
+    }
+
+    // 2. Buscar al usuario por correo
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (!user) throw new UnauthorizedException('Usuario no encontrado.');
+
+    // 3. Obtener su credencial local activa
+    const auth = await this.prisma.userAuth.findFirst({
+      where: { userId: user.id, provider: 'local' },
+    });
+    if (!auth) throw new UnauthorizedException();
+
+    // 4. Hashear la nueva contraseña y guardarla en Prisma
+    const newHash = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.userAuth.update({
+      where: { id: auth.id },
+      data: { 
+        passwordHash: newHash,
+        refreshToken: null // Cerramos sesiones previas por seguridad
+      },
+    });
+
+    // 5. Consumir el código usado para que no se pueda repetir
+    await this.cacheManager.del(cacheKey);
+    this.logger.log(`Contraseña restablecida exitosamente para: ${dto.email}`);
+
+    return { success: true, message: 'Tu contraseña ha sido restablecida con éxito.' };
+  }
+
   private sanitizeUser(user: any): UserResponseDto {
     return {
       id: user.id,

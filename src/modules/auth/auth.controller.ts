@@ -8,6 +8,7 @@ import { LogoutDto } from './dto/logout.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { ForgotDto } from './dto/forgot.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Auth')
 @Controller()
@@ -49,5 +50,13 @@ export class AuthController {
   async forgotPassword(@Body() dto: ForgotDto) {
     this.logger.log(`Password reset requested for email: ${dto.email}`);    
     return this.auth.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password using token' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    this.logger.log(`Password reset attempt for email: ${dto.email}`);
+    return this.auth.resetPassword(dto);
   }
 }
