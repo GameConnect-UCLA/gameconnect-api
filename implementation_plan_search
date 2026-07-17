@@ -1,0 +1,163 @@
+# Plan de Implementación: Búsqueda con Meilisearch y Feed de Tendencias
+
+Este plan detalla los pasos para estructurar, configurar e implementar el sistema de búsqueda global utilizando **Meilisearch** y la creación del **Feed de Tendencias** paginado en el proyecto GameConnect.
+
+---
+
+## 🎯 Objetivos
+1. Crear el módulo de infraestructura `MeiliModule` global para gestionar la conexión a Meilisearch.
+2. Crear el módulo de negocio `SearchModule` para gestionar la inicialización del índice `explorer`, las búsquedas filtradas/globales y los procesos de sincronización inicial y en tiempo real.
+3. Integrar la sincronización en tiempo real en los flujos de creación, modificación y eliminación de usuarios y posts.
+4. Implementar un **Feed de Tendencias** (`GET /feed/trending`) paginado de forma eficiente mediante ordenamiento en base de datos.
+
+---
+
+## 🔍 Revisión y Consejos sobre `search-instructions.md`
+
+Tras evaluar `search-instructions.md` y compararlo con el esquema de Prisma y la siembra (`seed.ts`), tenemos las siguientes sugerencias y consideraciones de diseño:
+
+### 1. Atributos Buscables (`searchableAttributes`)
+> [!IMPORTANT]
+> En `search-instructions.md`, se define:
+> `searchableAttributes: ['title', 'content', 'searchableText']`
+>
+> **Problema:** Si buscamos un usuario por su `username` o `displayName`, o un juego por su `name`, Meilisearch **no** encontrará coincidencia a menos que el término exacto esté en `searchableText`. 
+> 
+> **Propuesta:** Para garantizar que las búsquedas directas de usuarios o juegos funcionen de forma óptima y ordenada, añadiremos explícitamente a los `searchableAttributes`:
+> `['title', 'content', 'name', 'username', 'displayName', 'searchableText']`.
+
+### 2. Reglas de Ranking (`rankingRules`)
+> [!NOTE]
+> Las reglas de ranking propuestas omiten `proximity`, la cual es una regla nativa de Meilisearch clave para búsquedas de múltiples términos (prioriza documentos donde los términos buscados están más juntos).
+>
+> **Propuesta:** Mantendremos la regla de desempate por `rankingScore:desc` pero sugerimos mantener `proximity` para asegurar búsquedas lógicas:
+> ```json
+> [
+>   "words",
+>   "typo",
+>   "proximity",
+>   "attribute",
+>   "rankingScore:desc",
+>   "exactness"
+> ]
+> ```
+
+### 3. Evitar Sincronización Innecesaria por Likes y Comentarios
+> [!TIP]
+> Dado que el documento indexado en Meilisearch no almacena ni requiere la cantidad de `likesCounter` o `commentsCounter`, **no es necesario** re-sincronizar con Meilisearch cada vez que un usuario da Like o comenta. Solo sincronizaremos al crear/editar texto o al eliminar la entidad. Esto reduce drásticamente el tráfico a Meilisearch.
+
+---
+
+## ⚡ Diseño del Feed de Tendencias
+
+El Feed de Tendencias debe mostrar todos los posts del sistema ordenados prioritariamente por `likesCounter` descendente, y en caso de empate o ausencia de likes, por `commentsCounter` descendente.
+
+### Estrategia de Consulta
+En lugar de fragmentar la consulta como en el feed regular de inicio, utilizaremos la potencia de PostgreSQL a través de Prisma en una sola consulta paginada:
+```ts
+const posts = await this.prisma.post.findMany({
+  where: { deletedAt: null },
+  orderBy: [
+    { likesCounter: 'desc' },
+    { commentsCounter: 'desc' }
+  ],
+  skip: dto.offset,
+  take: dto.limit,
+  include: {
+    authorUser: {
+      select: {
+        username: true,
+        displayName: true,
+        profilePic: true,
+      },
+    },
+  },
+});
+```
+Esto resuelve de forma directa el ordenamiento nativo y la paginación con `skip` y `take` de manera sumamente eficiente y limpia.
+
+---
+
+## 🛠️ Cambios Propuestos
+
+### 1. Infraestructura y Configuración
+
+#### [NEW] [meili.service.ts](file:///d:/gameconnect-api/src/modules/meili/meili.service.ts)
+- Clase proveedora que inicializa `MeiliSearch` utilizando `MEILI_URL` y `MEILI_MASTER_KEY` desde `ConfigService`.
+- Implementa `OnModuleInit` para validar la conexión inicial mediante `client.health()`.
+- Expone `getClient()`.
+
+#### [NEW] [meili.module.ts](file:///d:/gameconnect-api/src/modules/meili/meili.module.ts)
+- Módulo decorado con `@Global()` que expone `MeiliService`.
+
+---
+
+### 2. Módulo de Búsqueda (Explorer)
+
+#### [NEW] [search.service.ts](file:///d:/gameconnect-api/src/modules/search/search.service.ts)
+- Método `onModuleInit()`:
+  - Crea o selecciona el índice `explorer`.
+  - Configura los `filterableAttributes` (`['type', 'hashtags']`), `searchableAttributes` y `rankingRules` descritos.
+- Método `search(q?: string, type?: string, limit?: number, offset?: number)`:
+  - Construye la consulta para Meilisearch.
+  - Si viene `type`, aplica el filtro nativo `type = <tipo>`.
+  - Si es por hashtag, puede filtrar por `hashtags = <tag>`.
+- Método `syncLocalDatabase()`:
+  - Lee todos los `User`, `Game` y `Post` activos desde PostgreSQL.
+  - Los transforma a la estructura plana.
+  - Ejecuta `addDocuments` de forma masiva.
+- Métodos individuales para sincronización en tiempo real:
+  - `indexPost(post: Post)`
+  - `deletePost(postId: string)`
+  - `indexUser(user: User)`
+
+#### [NEW] [search.controller.ts](file:///d:/gameconnect-api/src/modules/search/search.controller.ts)
+- Exponer `GET /search`:
+  - Query params: `q` (búsqueda de texto), `type` (filtro de pestaña: `post`, `game`, `user`), y opcionalmente `limit` / `offset` o `hashtag`.
+- Exponer `POST /search/sync` (protegido para ADMIN) para disparar la sincronización manual bulk.
+
+#### [MODIFY] [search.module.ts](file:///d:/gameconnect-api/src/modules/search/search.module.ts)
+- Declarar `SearchController` y `SearchService`. Importar `MeiliModule` y `PrismaModule` (si corresponde, aunque PrismaService es global).
+
+---
+
+### 3. Integración de Sincronización en Tiempo Real
+
+#### [MODIFY] [posts.service.ts](file:///d:/gameconnect-api/src/modules/posts/posts.service.ts)
+- Inyectar `SearchService`.
+- En `createPost()`, indexar el post tras guardarlo en DB.
+- En `updatePostContent()`, actualizar la indexación del post.
+- En `deletePost()`, eliminar el post del índice Meilisearch.
+
+#### [MODIFY] [users.service.ts](file:///d:/gameconnect-api/src/modules/users/users.service.ts)
+- Inyectar `SearchService`.
+- En `updateProfile()`, re-indexar el perfil del usuario.
+
+#### [MODIFY] [auth.service.ts](file:///d:/gameconnect-api/src/modules/auth/auth.service.ts)
+- Inyectar `SearchService`.
+- En `register()`, indexar al nuevo usuario recién registrado.
+
+---
+
+### 4. Feed de Tendencias
+
+#### [MODIFY] [feed.service.ts](file:///d:/gameconnect-api/src/modules/feed/feed.service.ts)
+- Método `getTrendingFeed(dto: FeedParamsDto)` que consulte los posts ordenados por likes y comentarios descendentes.
+
+#### [MODIFY] [feed.controller.ts](file:///d:/gameconnect-api/src/modules/feed/feed.controller.ts)
+- Agregar endpoint `GET /feed/trending` que llame a `getTrendingFeed(dto)`.
+
+---
+
+## 🧪 Plan de Verificación
+
+### Pruebas Automatizadas
+- Proponer la ejecución del comando `pnpm test` una vez integrados los servicios para validar que no haya regresiones.
+
+### Verificación Manual
+1. Levantar el stack local con `docker compose up -d postgres valkey meilisearch`.
+2. Instalar el paquete de meilisearch: `pnpm add meilisearch`.
+3. Ejecutar el seed con `pnpm prisma db seed` para poblar la base de datos PostgreSQL.
+4. Ejecutar el endpoint `/search/sync` de sincronización bulk.
+5. Realizar búsquedas globales y filtradas mediante Swagger o curl para verificar que el orden de relevancia funcione y retorne los perfiles de usuario, juegos y posts correspondientes.
+6. Probar el feed de tendencias `GET /feed/trending` para validar que el orden de likes y comentarios y su paginación sea exacto.
