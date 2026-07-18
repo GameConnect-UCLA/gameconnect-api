@@ -18,6 +18,7 @@ import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { randomInt } from 'crypto';
 import { EmailService } from '../email/email.service';
 import { getForgotPasswordTemplate } from './email.template';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +29,7 @@ export class AuthService {
     private config: ConfigService,
     private emailService: EmailService,
     @Inject(CACHE_MANAGER) private cacheManager: any,
+    private searchService: SearchService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -54,6 +56,9 @@ export class AuthService {
         role: 'USER',
       },
     });
+
+    await this.searchService.indexUser(user);
+
     const auth = await this.prisma.userAuth.create({
       data: {
         userId: user.id,
