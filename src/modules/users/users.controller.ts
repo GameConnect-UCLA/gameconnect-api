@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -23,6 +22,14 @@ import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserPostsQueryDto } from './dto/user-posts-query.dto';
 
+/** Request enriched with the JWT payload after auth guard validation. */
+interface AuthenticatedRequest {
+  user: {
+    userId: string;
+    authId: string;
+  };
+}
+
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
@@ -35,30 +42,24 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get authenticated user profile' })
-  @ApiResponse({ status: 200, description: 'Authenticated user profile' })
-  @ApiResponse({ status: 401, description: 'No active session' })
-  async getMe(@Req() req: any) {
-    return this.users.findById(req.user.userId);
+  async getProfile(@Req() req: AuthenticatedRequest) {
+    const res = await this.users.findById(req.user.userId);
+    console.log(res);
+    return res;
   }
 
-  @Patch(':id')
+  @Patch('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update profile (only your own account)' })
-  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiOperation({ summary: 'Update authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Updated profile' })
   @ApiResponse({ status: 401, description: 'No active session' })
-  @ApiResponse({ status: 403, description: 'Cannot edit a profile that is not yours' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async updateProfile(
-    @Req() req: any,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: UpdateProfileDto,
   ) {
-    if (req.user.userId !== id) {
-      throw new ForbiddenException('You can only edit your own profile');
-    }
-    return this.users.updateProfile(id, dto);
+    return this.users.updateProfile(req.user.userId, dto);
   }
 
   @Get(':id')
@@ -78,7 +79,10 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get posts published by a user (paginated)' })
   @ApiParam({ name: 'id', description: 'User UUID' })
-  @ApiResponse({ status: 200, description: 'List of posts published by the user' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of posts published by the user',
+  })
   @ApiResponse({ status: 401, description: 'No active session' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async getUserPosts(
@@ -91,5 +95,4 @@ export class UsersController {
       offset: query.offset,
     });
   }
-
 }

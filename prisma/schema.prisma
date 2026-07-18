@@ -47,6 +47,11 @@ enum MessageType {
   DIRECT_MESSAGE
 }
 
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
 enum EventType {
   LIKE
   FOLLOW
@@ -283,11 +288,12 @@ model Message {
 }
 
 model Conversation {
-  id           String    @id @default(uuid()) @db.Uuid
-  name         String?   @db.VarChar(30)
-  groupPicture String?   @map("group_picture")
-  createdBy    String    @map("created_by") @db.Uuid
-  createdAt    DateTime? @map("created_at") @db.Timestamptz
+  id           String           @id @default(uuid()) @db.Uuid
+  name         String?          @db.VarChar(30)
+  groupPicture String?          @map("group_picture")
+  createdBy    String           @map("created_by") @db.Uuid
+  createdAt    DateTime?        @map("created_at") @db.Timestamptz
+  type         ConversationType @default(DIRECT)
 
   // Relations
   creator  User          @relation("ConversationCreator", fields: [createdBy], references: [id])

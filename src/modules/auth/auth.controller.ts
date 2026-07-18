@@ -6,7 +6,6 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { AuthResponseDto } from './dto/auth-response.dto';
 import { ForgotDto } from './dto/forgot.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
@@ -18,21 +17,21 @@ export class AuthController {
 
   @Post('register')
   @ApiOperation({ summary: 'Register user' })
-  register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
+  register(@Body() dto: RegisterDto) {
     this.logger.log(dto);
     return this.auth.register(dto);
   }
 
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
-  login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
+  login(@Body() dto: LoginDto) {
     this.logger.log(dto);
     return this.auth.login(dto);
   }
 
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh access token' })
-  refresh(@Body() dto: RefreshDto): Promise<AuthResponseDto> {
+  refresh(@Body() dto: RefreshDto) {
     return this.auth.refresh(dto);
   }
 

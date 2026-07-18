@@ -14,7 +14,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { randomInt } from 'crypto';
 import { EmailService } from '../email/email.service';
 import { getForgotPasswordTemplate } from './email.template';
@@ -32,7 +31,7 @@ export class AuthService {
     private searchService: SearchService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<AuthResponseDto> {
+  async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findFirst({
       where: {
         OR: [
@@ -75,7 +74,7 @@ export class AuthService {
     return { ...tokens, user: this.sanitizeUser(user) };
   }
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -97,7 +96,7 @@ export class AuthService {
     return { ...tokens, user: this.sanitizeUser(user) };
   }
 
-  async refresh(dto: RefreshDto): Promise<AuthResponseDto> {
+  async refresh(dto: RefreshDto) {
     const payload = await this.jwt
       .verifyAsync<{ sub: string; authId: string }>(dto.refreshToken, {
         secret:
@@ -122,7 +121,7 @@ export class AuthService {
       where: { id: auth.id },
       data: { refreshToken: tokens.refreshToken },
     });
-    return { ...tokens, user: this.sanitizeUser(user) };
+    return { ...tokens, user };
   }
 
   async logout(userId: string, refreshToken?: string) {
@@ -207,7 +206,7 @@ async forgotPassword(email: string) {
     return { success: true, message: 'Tu contraseña ha sido restablecida con éxito.' };
   }
 
-  private sanitizeUser(user: any): UserResponseDto {
+  private sanitizeUser(user: any) {
     return {
       id: user.id,
       username: user.username,
