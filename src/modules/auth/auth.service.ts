@@ -14,7 +14,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { randomInt } from 'crypto';
 import { EmailService } from '../email/email.service';
 import { getForgotPasswordTemplate } from './email.template';
@@ -75,7 +74,7 @@ export class AuthService {
     return { ...tokens, user: this.sanitizeUser(user) };
   }
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -207,7 +206,7 @@ async forgotPassword(email: string) {
     return { success: true, message: 'Tu contraseña ha sido restablecida con éxito.' };
   }
 
-  private sanitizeUser(user: any): UserResponseDto {
+  private sanitizeUser(user: any) {
     return {
       id: user.id,
       username: user.username,
