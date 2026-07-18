@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private searchService: SearchService,
+  ) {}
 
   async findById(id: string) {
     return this.prisma.user.findUnique({
@@ -104,7 +108,7 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
 
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id },
       data: {
         ...(dto.username !== undefined && { username: dto.username }),
@@ -130,5 +134,8 @@ export class UsersService {
         createdAt: true,
       },
     });
+
+    await this.searchService.indexUser(updatedUser);
+    return updatedUser;
   }
 }

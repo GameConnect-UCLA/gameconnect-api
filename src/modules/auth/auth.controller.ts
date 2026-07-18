@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, Logger } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Logger, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -6,6 +6,9 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { AuthResponseDto } from './dto/auth-response.dto';
+import { ForgotDto } from './dto/forgot.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Auth')
 @Controller()
@@ -39,5 +42,21 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout and invalidate refresh token' })
   logout(@Req() req: any, @Body() dto: LogoutDto) {
     return this.auth.logout(req.user.userId, dto.refreshToken);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send password reset email' })
+  async forgotPassword(@Body() dto: ForgotDto) {
+    this.logger.log(`Password reset requested for email: ${dto.email}`);    
+    return this.auth.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password using token' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    this.logger.log(`Password reset attempt for email: ${dto.email}`);
+    return this.auth.resetPassword(dto);
   }
 }
