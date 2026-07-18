@@ -9,18 +9,20 @@ import { UpdatePostContentDto } from './dto/update-post-content.dto';
 import { BookmarksQueryDto } from './dto/bookmarks-query.dto';
 import { FavoriteType } from '../../generated/prisma/enums';
 import { MediaService } from '../media/media.service';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class PostsService {
     constructor(
         private prisma: PrismaService,
         private mediaService: MediaService,
+        private searchService: SearchService,
     ) { }
 
     async createPost(userId: string, dto: CreatePostDto) {
         await this.checkUserExists(userId);
 
-        return this.prisma.post.create({
+        const post = await this.prisma.post.create({
             data: {
                 author: userId,
                 title: dto.title ?? null,
@@ -47,12 +49,15 @@ export class PostsService {
                 },
             },
         });
+
+        await this.searchService.indexPost(post);
+        return post;
     }
 
     async updatePostContent(userId: string, dto: PostIDto, body: UpdatePostContentDto) {
         await this.getPostForModification(dto.id, userId, 'edit');
 
-        return this.prisma.post.update({
+        const post = await this.prisma.post.update({
             where: { id: dto.id },
             data: {
                 content: body.content,
@@ -68,6 +73,9 @@ export class PostsService {
                 },
             },
         });
+
+        await this.searchService.indexPost(post);
+        return post;
     }
 
     async createComment(userId: string, dto: PostIDto, body: CreateCommentDto) {
@@ -343,6 +351,8 @@ export class PostsService {
                 where: { id: postId },
             });
         });
+
+        await this.searchService.deletePost(postId);
 
         const urlsToDelete: string[] = [];
         if (post.media && typeof post.media === 'object') {

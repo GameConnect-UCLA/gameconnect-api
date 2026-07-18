@@ -108,4 +108,31 @@ export class FeedService {
 
     return feedPosts;
   }
-}
+
+  async getTrendingFeed(dto: FeedParamsDto) {
+    const trendingPosts = await this.prisma.post.findMany({
+      where: { deletedAt: null },
+      orderBy: [
+        { likesCounter: 'desc' },
+        { commentsCounter: 'desc' },
+      ],
+      skip: dto.offset,
+      take: dto.limit,
+      include: {
+        authorUser: {
+          select: {
+            username: true,
+            displayName: true,
+            profilePic: true,
+          },
+        },
+      },
+    });
+
+    if (trendingPosts.length === 0) {
+      throw new NotFoundException('No se han encontrado resultados');
+    }
+
+    return trendingPosts;
+  }
+}

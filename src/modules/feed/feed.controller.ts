@@ -20,4 +20,12 @@ export class FeedController {
     const userPosts = await this.feedService.getHomeFeed(req.user.userId, dto);
     return userPosts
   }
-}
+
+  @Get('trending')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get trending feed' })
+  @ApiResponse({ status: 200, description: 'Trending feed retrieved successfully' })
+  async getTrendingFeed(@Query() dto: FeedParamsDto) {
+    return this.feedService.getTrendingFeed(dto);
+  }
+}
