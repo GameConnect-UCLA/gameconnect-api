@@ -6,9 +6,9 @@ import { FeedParamsDto } from './dto/feed-params.dto';
 export class FeedService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getHomeFeed(userId: string, dto: FeedParamsDto){
+  async getHomeFeed(userId: string, dto: FeedParamsDto) {
     try {
-        await this.prisma.user.findUnique({
+      await this.prisma.user.findUnique({
         where: { id: userId },
         select: { id: true },
       });
@@ -27,9 +27,9 @@ export class FeedService {
 
     // Busqueda por posts de usuarios que se siguen
     const followedPosts = await this.prisma.post.findMany({
-      where: { 
-        author: { in: followedIds }, 
-        deletedAt: null 
+      where: {
+        author: { in: followedIds },
+        deletedAt: null,
       },
       orderBy: { createdAt: 'desc' },
       skip: dto.offset,
@@ -112,10 +112,7 @@ export class FeedService {
   async getTrendingFeed(dto: FeedParamsDto) {
     const trendingPosts = await this.prisma.post.findMany({
       where: { deletedAt: null },
-      orderBy: [
-        { likesCounter: 'desc' },
-        { commentsCounter: 'desc' },
-      ],
+      orderBy: [{ likesCounter: 'desc' }, { commentsCounter: 'desc' }],
       skip: dto.offset,
       take: dto.limit,
       include: {
@@ -135,4 +132,4 @@ export class FeedService {
 
     return trendingPosts;
   }
-}
+}

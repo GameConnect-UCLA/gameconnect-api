@@ -5,6 +5,8 @@ import { AuthModule } from '../auth/auth.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
+import { ValkeyModule } from '../valkey/valkey.module';
+
 
 @Module({
   imports: [
@@ -16,6 +18,7 @@ import { ChatGateway } from './chat.gateway';
       }),
     }),
     AuthModule,
+    ValkeyModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway],

@@ -6,7 +6,10 @@ export class ResetPasswordDto {
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ description: 'Código de 6 dígitos enviado por correo', example: '123456' })
+  @ApiProperty({
+    description: 'Código de 6 dígitos enviado por correo',
+    example: '123456',
+  })
   @IsString()
   @Length(6, 6)
   code!: string;

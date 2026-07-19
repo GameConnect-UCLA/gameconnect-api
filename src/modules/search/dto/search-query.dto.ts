@@ -8,7 +8,10 @@ export class SearchQueryDto {
   @IsString()
   q?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by entity type', enum: ['post', 'game', 'user'] })
+  @ApiPropertyOptional({
+    description: 'Filter by entity type',
+    enum: ['post', 'game', 'user'],
+  })
   @IsOptional()
   @IsString()
   @IsIn(['post', 'game', 'user'])
@@ -19,7 +22,10 @@ export class SearchQueryDto {
   @IsString()
   hashtag?: string;
 
-  @ApiPropertyOptional({ description: 'Number of results to return', default: 10 })
+  @ApiPropertyOptional({
+    description: 'Number of results to return',
+    default: 10,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

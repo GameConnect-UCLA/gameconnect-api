@@ -2,9 +2,13 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Inject,
+  Logger,
 } from '@nestjs/common';
+import Valkey from 'iovalkey';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SendMessageDto } from './dto/send-message.dto';
+
 
 export interface MemberInfo {
   id: string;
@@ -49,7 +53,13 @@ export interface ConversationInfo {
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(ChatService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    @Inject('VALKEY_CLIENT') private valkey: Valkey,
+  ) {}
+
 
   async ensureMember(conversationId: string, userId: string) {
     const member = await this.prisma.groupMember.findFirst({
@@ -103,6 +113,74 @@ export class ChatService {
     return this.mapConversation(conversation);
   }
 
+  async searchChatUsers(currentUserId: string, query?: string): Promise<any[]> {
+    const follows = await this.prisma.follow.findMany({
+      where: {
+        followerId: currentUserId,
+        followedType: 'USER',
+      },
+      select: {
+        followedId: true,
+      },
+    });
+    const followedUserIds = follows.map((f) => f.followedId);
+
+    if (followedUserIds.length === 0) return [];
+
+    const existingConversations = await this.prisma.conversation.findMany({
+      where: {
+        type: 'DIRECT',
+        members: {
+          some: {
+            userId: currentUserId,
+            leftAt: null,
+          },
+        },
+      },
+      include: {
+        members: true,
+      },
+    });
+
+    const existingChatUserIds = new Set<string>();
+    for (const conv of existingConversations) {
+      for (const member of conv.members) {
+        if (member.userId !== currentUserId) {
+          existingChatUserIds.add(member.userId);
+        }
+      }
+    }
+
+    const availableUserIds = followedUserIds.filter(
+      (id) => !existingChatUserIds.has(id),
+    );
+
+    if (availableUserIds.length === 0) return [];
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: availableUserIds },
+        ...(query
+          ? {
+              OR: [
+                { username: { contains: query, mode: 'insensitive' } },
+                { displayName: { contains: query, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        profilePic: true,
+      },
+      take: 20,
+    });
+
+    return users;
+  }
+
   async getConversations(currentUserId: string): Promise<ConversationInfo[]> {
     const conversations = await this.prisma.conversation.findMany({
       where: {
@@ -125,13 +203,105 @@ export class ChatService {
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      include: this.conversationInclude,
+      include: {
+        members: {
+          where: { leftAt: null },
+          include: {
+            user: { select: { id: true, username: true, profilePic: true } },
+          },
+        },
+      },
     });
 
     if (!conversation) throw new NotFoundException('Conversation not found');
 
-    return this.mapConversation(conversation);
+    let messages: MessageInfo[] = [];
+    const cacheKey = `chat:conversation:${conversationId}:messages`;
+
+    try {
+      const cached = await this.valkey.zrange(cacheKey, '0', '-1');
+
+      if (cached && cached.length > 0) {
+        messages = cached.map((c) => JSON.parse(c) as MessageInfo);
+      } else {
+        const dbMessages = await this.prisma.message.findMany({
+          where: { conversationId },
+          orderBy: { sentAt: 'asc' },
+          take: 100,
+          include: {
+            sender: {
+              select: { id: true, username: true, profilePic: true },
+            },
+            replyTo: true,
+          },
+        });
+
+        messages = dbMessages.map((msg) => ({
+          id: msg.id,
+          sentBy: msg.sentBy,
+          conversation: msg.conversationId,
+          replyTo: msg.replyToId,
+          type: msg.type,
+          messageText: msg.messageText,
+          attachedMedia: (msg.attachedMedia as Record<string, any> | null)?.attachments ?? [],
+          sentAt: msg.sentAt?.toISOString() ?? new Date().toISOString(),
+          senderUsername: msg.sender?.username ?? null,
+          senderProfilePic: msg.sender?.profilePic ?? null,
+          replyToMessage: msg.replyTo ?? undefined,
+          gameCard: (msg.attachedMedia as Record<string, unknown> | null)?.gameCard ?? undefined,
+        }));
+
+        if (messages.length > 0) {
+          const pipeline = this.valkey.pipeline();
+          messages.forEach((msg) => {
+            const score = msg.sentAt ? new Date(msg.sentAt).getTime() : Date.now();
+            pipeline.zadd(cacheKey, score, JSON.stringify(msg));
+          });
+          pipeline.expire(cacheKey, 86400); // 24 hours TTL
+          await pipeline.exec();
+        }
+      }
+    } catch (err) {
+      this.logger.error(`Error with Valkey cache in getConversation: ${err.message}`);
+      const dbMessages = await this.prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { sentAt: 'asc' },
+        include: {
+          sender: {
+            select: { id: true, username: true, profilePic: true },
+          },
+          replyTo: true,
+        },
+      });
+      messages = dbMessages.map((msg) => ({
+        id: msg.id,
+        sentBy: msg.sentBy,
+        conversation: msg.conversationId,
+        replyTo: msg.replyToId,
+        type: msg.type,
+        messageText: msg.messageText,
+        attachedMedia: (msg.attachedMedia as Record<string, any> | null)?.attachments ?? [],
+        sentAt: msg.sentAt?.toISOString() ?? new Date().toISOString(),
+        senderUsername: msg.sender?.username ?? null,
+        senderProfilePic: msg.sender?.profilePic ?? null,
+        replyToMessage: msg.replyTo ?? undefined,
+        gameCard: (msg.attachedMedia as Record<string, unknown> | null)?.gameCard ?? undefined,
+      }));
+    }
+
+    const mapped = this.mapConversation({ ...conversation, messages: [] });
+    mapped.messages = messages;
+
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      mapped.lastMessage = lastMsg.messageText;
+      mapped.lastMessageTime = lastMsg.sentAt;
+      mapped.lastMessageSender = lastMsg.senderUsername;
+    }
+
+    return mapped;
   }
+
 
   async sendMessage(
     conversationId: string,
@@ -142,9 +312,31 @@ export class ChatService {
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
+      include: { members: true },
     });
 
     if (!conversation) throw new NotFoundException('Conversation not found');
+
+    if (conversation.type === 'DIRECT') {
+      const otherMember = conversation.members.find(
+        (m) => m.userId !== senderId,
+      );
+      if (otherMember) {
+        const isBlocked = await this.isUserBlocked(
+          senderId,
+          otherMember.userId,
+        );
+        const hasBlockedMe = await this.isUserBlocked(
+          otherMember.userId,
+          senderId,
+        );
+        if (isBlocked || hasBlockedMe) {
+          throw new ForbiddenException(
+            'Cannot send message: one of the users has blocked the other',
+          );
+        }
+      }
+    }
 
     if (dto.replyToId) {
       const replyMsg = await this.prisma.message.findUnique({
@@ -181,14 +373,14 @@ export class ChatService {
       },
     });
 
-    return {
+    const messageInfo: MessageInfo = {
       id: message.id,
       sentBy: message.sentBy,
       conversation: message.conversationId,
       replyTo: message.replyToId,
       type: message.type,
       messageText: message.messageText,
-      attachedMedia: message.attachedMedia,
+      attachedMedia: (message.attachedMedia as Record<string, any> | null)?.attachments ?? [],
       sentAt: message.sentAt?.toISOString() ?? new Date().toISOString(),
       senderUsername: message.sender?.username ?? null,
       senderProfilePic: message.sender?.profilePic ?? null,
@@ -197,6 +389,25 @@ export class ChatService {
         (message.attachedMedia as Record<string, unknown> | null)?.gameCard ??
         undefined,
     };
+
+    const cacheKey = `chat:conversation:${conversationId}:messages`;
+    try {
+      const cacheExists = await this.valkey.exists(cacheKey);
+      if (cacheExists === 1) {
+        const score = message.sentAt ? new Date(message.sentAt).getTime() : Date.now();
+        const pipeline = this.valkey.pipeline();
+        pipeline.zadd(cacheKey, score, JSON.stringify(messageInfo));
+        pipeline.zremrangebyrank(cacheKey, '0', '-101'); // Retain only 100 most recent
+
+        pipeline.expire(cacheKey, 86400); // 24 hours TTL
+        await pipeline.exec();
+      }
+    } catch (err) {
+      this.logger.error(`Error caching message in Valkey: ${err.message}`);
+    }
+
+    return messageInfo;
+
   }
 
   async deleteMessage(
@@ -216,6 +427,103 @@ export class ChatService {
     }
 
     await this.prisma.message.delete({ where: { id: messageId } });
+
+    try {
+      const cacheKey = `chat:conversation:${conversationId}:messages`;
+      await this.valkey.del(cacheKey);
+    } catch (err) {
+      this.logger.error(`Error deleting cache key in Valkey: ${err.message}`);
+    }
+  }
+
+  async clearConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.ensureMember(conversationId, userId);
+    await this.prisma.message.deleteMany({
+      where: { conversationId },
+    });
+
+    try {
+      const cacheKey = `chat:conversation:${conversationId}:messages`;
+      await this.valkey.del(cacheKey);
+    } catch (err) {
+      this.logger.error(`Error deleting cache key in Valkey: ${err.message}`);
+    }
+  }
+
+
+  async blockUser(userId: string, targetUserId: string): Promise<void> {
+    if (userId === targetUserId) {
+      throw new ForbiddenException('Cannot block yourself');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { accountSettings: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
+    if (!targetUser) throw new NotFoundException('Target user not found');
+
+    const settings = (user.accountSettings as Record<string, any>) || {};
+    const blockedUsers = new Set<string>(
+      Array.isArray(settings.blockedUserIds)
+        ? (settings.blockedUserIds as string[])
+        : [],
+    );
+    blockedUsers.add(targetUserId);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        accountSettings: {
+          ...settings,
+          blockedUserIds: Array.from(blockedUsers),
+        },
+      },
+    });
+  }
+
+  async unblockUser(userId: string, targetUserId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { accountSettings: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const settings = (user.accountSettings as Record<string, any>) || {};
+    const blockedUsers = new Set<string>(
+      Array.isArray(settings.blockedUserIds)
+        ? (settings.blockedUserIds as string[])
+        : [],
+    );
+    blockedUsers.delete(targetUserId);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        accountSettings: {
+          ...settings,
+          blockedUserIds: Array.from(blockedUsers),
+        },
+      },
+    });
+  }
+
+  async isUserBlocked(userId: string, targetUserId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { accountSettings: true },
+    });
+    if (!user || !user.accountSettings) return false;
+    const settings = user.accountSettings as Record<string, any>;
+    const blockedUsers = settings.blockedUserIds || [];
+    return Array.isArray(blockedUsers) && blockedUsers.includes(targetUserId);
   }
 
   private conversationInclude = {
@@ -254,6 +562,9 @@ export class ChatService {
         username: (m.user as Record<string, unknown> | null)?.username as
           | string
           | null,
+        displayName: (m.user as Record<string, unknown> | null)?.displayName as
+          | string
+          | null,
         profilePic: (m.user as Record<string, unknown> | null)?.profilePic as
           | string
           | null,
@@ -268,7 +579,7 @@ export class ChatService {
         replyTo: msg.replyToId as string | null,
         type: msg.type as string,
         messageText: msg.messageText as string | null,
-        attachedMedia: msg.attachedMedia,
+        attachedMedia: (msg.attachedMedia as Record<string, any> | null)?.attachments ?? [],
         sentAt:
           (
             msg.sentAt as { toISOString?: () => string } | null
