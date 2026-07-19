@@ -61,25 +61,56 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
 
       // Automatically join all user's conversation rooms and broadcast online status
-      void this.chatService
-        .getConversations(userId)
-        .then((conversations) => {
+      void (async () => {
+        try {
+          const conversations =
+            await this.chatService.getConversations(userId);
+
+          // Await ALL room joins before broadcasting online
+          await Promise.all(
+            conversations.map((conv) => client.join(conv.id)),
+          );
+
           this.logger.log(
             `User ${userId} automatically joined ${conversations.length} conversation rooms`,
           );
-          for (const conv of conversations) {
-            void client.join(conv.id);
-            if (isFirstConnection) {
+
+          if (isFirstConnection) {
+            for (const conv of conversations) {
               this.server.to(conv.id).emit('user:online', { userId });
             }
+            this.logger.log(
+              `Broadcasted user:online for ${userId} to ${conversations.length} rooms`,
+            );
           }
-        })
-        .catch((err) => {
+
+          // Send online status of other connected members to the newly connected user
+          const onlineMemberIds = new Set<string>();
+          for (const conv of conversations) {
+            for (const member of conv.members || []) {
+              if (
+                member.userId !== userId &&
+                this.activeConnections.has(member.userId)
+              ) {
+                onlineMemberIds.add(member.userId);
+              }
+            }
+          }
+          for (const onlineId of onlineMemberIds) {
+            client.emit('user:online', { userId: onlineId });
+          }
+          if (onlineMemberIds.size > 0) {
+            this.logger.log(
+              `Sent initial ${onlineMemberIds.size} online statuses directly to ${userId}`,
+            );
+          }
+        } catch (err) {
           this.logger.error(
             'Failed to load conversations for new connection:',
             err,
           );
-        });
+        }
+      })();
     } catch (err: any) {
       this.logger.warn(
         `Client ${client.id} rejected: Token validation failed: ${err.message}`,
@@ -210,5 +241,41 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       userId: client.userId,
       isTyping: false,
     });
+  }
+
+  @SubscribeMessage('presence:sync')
+  async handlePresenceSync(
+    @ConnectedSocket() client: Socket & { userId: string },
+  ) {
+    try {
+      const userId = client.userId;
+      if (!userId) return;
+
+      const conversations = await this.chatService.getConversations(userId);
+
+      const onlineMemberIds = new Set<string>();
+      for (const conv of conversations) {
+        for (const member of conv.members || []) {
+          if (
+            member.userId !== userId &&
+            this.activeConnections.has(member.userId)
+          ) {
+            onlineMemberIds.add(member.userId);
+          }
+        }
+      }
+
+      for (const onlineId of onlineMemberIds) {
+        client.emit('user:online', { userId: onlineId });
+      }
+
+      if (onlineMemberIds.size > 0) {
+        this.logger.log(
+          `WS: Sent ${onlineMemberIds.size} online statuses on presence:sync to ${userId}`,
+        );
+      }
+    } catch (err: any) {
+      this.logger.error(`WS: presence:sync failed: ${err.message}`);
+    }
   }
 }
