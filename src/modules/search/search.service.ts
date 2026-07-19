@@ -106,6 +106,15 @@ export class SearchService implements OnModuleInit {
     // 1. Obtener Posts
     const posts = await this.prisma.post.findMany({
       where: { deletedAt: null },
+      include: {
+        authorUser: {
+          select: {
+            username: true,
+            displayName: true,
+            profilePic: true,
+          },
+        },
+      },
     });
 
     // 2. Obtener Usuarios
@@ -228,6 +237,7 @@ export class SearchService implements OnModuleInit {
     const title = post.title || '';
     const content = post.content || '';
     const hashtags = post.hashtags || [];
+    const authorUser = post.authorUser || {};
     return {
       id: post.id,
       type: 'post',
@@ -239,6 +249,9 @@ export class SearchService implements OnModuleInit {
       media: post.media || null,
       likesCounter: post.likesCounter || 0,
       commentsCounter: post.commentsCounter || 0,
+      username: authorUser.username || '',
+      displayName: authorUser.displayName || '',
+      profilePic: authorUser.profilePic || '',
     };
   }
 
