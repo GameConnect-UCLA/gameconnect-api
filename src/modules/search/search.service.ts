@@ -177,6 +177,24 @@ export class SearchService implements OnModuleInit {
   }
 
   /**
+   * Actualiza parcialmente los contadores de un post (likes y comentarios) en Meilisearch.
+   */
+  async updatePostCounters(postId: string, counters: { likesCounter?: number; commentsCounter?: number }) {
+    try {
+      const client = this.meiliService.getClient();
+      await client.index(this.INDEX_NAME).updateDocuments([
+        {
+          id: postId,
+          ...counters,
+        },
+      ]);
+      this.logger.log(`Updated Meilisearch counters for post ${postId}: ${JSON.stringify(counters)}.`);
+    } catch (error) {
+      this.logger.error(`Failed to update Meilisearch counters for post ${postId}:`, error);
+    }
+  }
+
+  /**
    * Sincroniza un usuario en tiempo real (para uso de otros desarrolladores).
    */
   async indexUser(user: any) {
@@ -219,6 +237,8 @@ export class SearchService implements OnModuleInit {
       searchableText: `${title} ${content} ${hashtags.join(' ')}`.trim(),
       hashtags,
       media: post.media || null,
+      likesCounter: post.likesCounter || 0,
+      commentsCounter: post.commentsCounter || 0,
     };
   }
 

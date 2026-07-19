@@ -24,7 +24,7 @@ export class PostsService {
     private prisma: PrismaService,
     private mediaService: MediaService,
     private searchService: SearchService,
-  ) {}
+  ) { }
 
   async createPost(userId: string, dto: CreatePostDto) {
     await this.checkUserExists(userId);
@@ -93,7 +93,9 @@ export class PostsService {
     await this.checkUserExists(userId);
     await this.checkPostExists(dto.id);
 
-    return this.prisma.$transaction(async (tx) => {
+    let newCommentsCount = 0;
+
+    const comment = await this.prisma.$transaction(async (tx) => {
       const comment = await tx.comment.create({
         data: {
           author: userId,
@@ -101,26 +103,29 @@ export class PostsService {
           content: body.content,
           media: body.media,
         },
-        select: {
-          id: true,
-          author: true,
-          parentId: true,
-          content: true,
-          media: true,
-        },
+        select: { id: true, author: true, parentId: true, content: true, media: true },
       });
 
-      await tx.post.update({
+      const updatedPost = await tx.post.update({
         where: { id: dto.id },
         data: {
           commentsCounter: {
             increment: 1,
           },
         },
+        select: { commentsCounter: true },
       });
+
+      newCommentsCount = updatedPost.commentsCounter ?? 0;
 
       return comment;
     });
+
+    await this.searchService.updatePostCounters(dto.id, {
+      commentsCounter: newCommentsCount,
+    });
+
+    return comment;
   }
 
   async toggleLike(userId: string, dto: LikePostDto) {
@@ -152,6 +157,10 @@ export class PostsService {
         });
       });
 
+      await this.searchService.updatePostCounters(dto.postId, {
+        likesCounter: updated.likesCounter ?? 0,
+      });
+
       return {
         postId: updated.id,
         userId,
@@ -177,6 +186,10 @@ export class PostsService {
         },
         select: { id: true, likesCounter: true },
       });
+    });
+
+    await this.searchService.updatePostCounters(dto.postId, {
+      likesCounter: updated.likesCounter ?? 0,
     });
 
     return {
