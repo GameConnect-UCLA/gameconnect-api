@@ -252,6 +252,7 @@ export class SearchService implements OnModuleInit {
       username: authorUser.username || '',
       displayName: authorUser.displayName || '',
       profilePic: authorUser.profilePic || '',
+      isReview: post.isReview ?? false,
     };
   }
 
