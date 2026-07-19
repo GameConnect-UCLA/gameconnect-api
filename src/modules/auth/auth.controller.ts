@@ -1,4 +1,13 @@
-import { Controller, Post, Body, UseGuards, Req, Logger, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  Logger,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -13,19 +22,17 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 @Controller()
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
-  constructor(private auth: AuthService) {}
+  constructor(private auth: AuthService) { }
 
   @Post('register')
   @ApiOperation({ summary: 'Register user' })
   register(@Body() dto: RegisterDto) {
-    this.logger.log(dto);
     return this.auth.register(dto);
   }
 
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
   login(@Body() dto: LoginDto) {
-    this.logger.log(dto);
     return this.auth.login(dto);
   }
 
@@ -47,7 +54,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Send password reset email' })
   async forgotPassword(@Body() dto: ForgotDto) {
-    this.logger.log(`Password reset requested for email: ${dto.email}`);    
+    this.logger.log(`Password reset requested for email: ${dto.email}`);
     return this.auth.forgotPassword(dto.email);
   }
 

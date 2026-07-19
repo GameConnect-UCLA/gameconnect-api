@@ -43,7 +43,9 @@ export class MediaService {
     const bucketPublicUrlPrefix = `public/${this.bucket}/`;
     const prefixIndex = supabaseFileId.indexOf(bucketPublicUrlPrefix);
     if (prefixIndex !== -1) {
-      filePath = supabaseFileId.substring(prefixIndex + bucketPublicUrlPrefix.length);
+      filePath = supabaseFileId.substring(
+        prefixIndex + bucketPublicUrlPrefix.length,
+      );
     }
 
     // Decodificar los caracteres de URL, como '%20' a espacios reales,

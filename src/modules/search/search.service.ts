@@ -15,14 +15,21 @@ export class SearchService implements OnModuleInit {
   async onModuleInit() {
     try {
       const client = this.meiliService.getClient();
-      
+
       // Asegurar que el índice existe o crearlo
       const index = client.index(this.INDEX_NAME);
 
       // Configurar ajustes del índice explorer
       await index.updateSettings({
         filterableAttributes: ['type', 'hashtags'],
-        searchableAttributes: ['title', 'content', 'name', 'username', 'displayName', 'searchableText'],
+        searchableAttributes: [
+          'title',
+          'content',
+          'name',
+          'username',
+          'displayName',
+          'searchableText',
+        ],
         rankingRules: [
           'words',
           'typo',
@@ -33,16 +40,27 @@ export class SearchService implements OnModuleInit {
         ],
       });
 
-      this.logger.log(`Meilisearch index '${this.INDEX_NAME}' settings configured successfully.`);
+      this.logger.log(
+        `Meilisearch index '${this.INDEX_NAME}' settings configured successfully.`,
+      );
     } catch (error) {
-      this.logger.error(`Error configuring Meilisearch index '${this.INDEX_NAME}':`, error);
+      this.logger.error(
+        `Error configuring Meilisearch index '${this.INDEX_NAME}':`,
+        error,
+      );
     }
   }
 
   /**
    * Realiza una búsqueda global o filtrada en el índice explorer.
    */
-  async search(params: { q?: string; type?: string; hashtag?: string; limit?: number; offset?: number }) {
+  async search(params: {
+    q?: string;
+    type?: string;
+    hashtag?: string;
+    limit?: number;
+    offset?: number;
+  }) {
     const client = this.meiliService.getClient();
     const index = client.index(this.INDEX_NAME);
 
@@ -118,8 +136,14 @@ export class SearchService implements OnModuleInit {
     if (documents.length > 0) {
       // Inyectar documentos
       const task = await index.addDocuments(documents);
-      this.logger.log(`Bulk synchronization queued. Meilisearch Task ID: ${task.taskUid}. Indexed ${documents.length} documents.`);
-      return { message: 'Synchronization task successfully queued', taskUid: task.taskUid, documentCount: documents.length };
+      this.logger.log(
+        `Bulk synchronization queued. Meilisearch Task ID: ${task.taskUid}. Indexed ${documents.length} documents.`,
+      );
+      return {
+        message: 'Synchronization task successfully queued',
+        taskUid: task.taskUid,
+        documentCount: documents.length,
+      };
     }
 
     return { message: 'No documents found to synchronize', documentCount: 0 };
@@ -236,7 +260,7 @@ export class SearchService implements OnModuleInit {
   }
 
   private mapGameToDocument(game: any) {
-    const metadata = (game.metadata as any) || {};
+    const metadata = game.metadata || {};
     const name = metadata.name || '';
     const description = metadata.description || '';
     const coverImage = metadata.cover_url || metadata.coverImage || '';
