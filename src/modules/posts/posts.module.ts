@@ -12,4 +12,3 @@ import { SearchModule } from '../search/search.module';
   exports: [PostsService],
 })
 export class PostsModule {}
-

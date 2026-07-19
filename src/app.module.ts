@@ -1,4 +1,4 @@
-import { Controller, Get, Module } from '@nestjs/common';
+import { Controller, Get, Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -12,6 +12,9 @@ import { SearchModule } from './modules/search/search.module';
 import { ModerationModule } from './modules/moderation/moderation.module';
 import { MediaModule } from './modules/media/media.module';
 import { EmailModule } from './modules/email/email.module';
+import { ValkeyModule } from './modules/valkey/valkey.module';
+import { LoggerMiddleware } from './common/middleware/logger.middleware';
+
 
 @Controller()
 class AppController {
@@ -36,7 +39,12 @@ class AppController {
     ModerationModule,
     MediaModule,
     EmailModule,
+    ValkeyModule,
   ],
   controllers: [AppController],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggerMiddleware).forRoutes('*');
+  }
+}

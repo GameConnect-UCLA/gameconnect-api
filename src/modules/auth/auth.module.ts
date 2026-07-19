@@ -12,12 +12,12 @@ import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
-    PrismaModule, 
+    PrismaModule,
     EmailModule, // Se agrega a los imports organizados
-    JwtModule.register({}), 
-    PassportModule, 
+    JwtModule.register({}),
+    PassportModule,
     CacheModule.register({ ttl: 900000 }),
-    SearchModule
+    SearchModule,
   ],
   providers: [AuthService, JwtStrategy, JwtAuthGuard], // Limpiamos EmailService de aquí
   controllers: [AuthController],

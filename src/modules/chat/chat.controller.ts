@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +20,9 @@ import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { DeleteMessageDto } from './dto/delete-message.dto';
 import { StartConversationDto } from './dto/start-conversation.dto';
+import { ClearConversationDto } from './dto/clear-conversation.dto';
+import { BlockUserDto } from './dto/block-user.dto';
+import { UnblockUserDto } from './dto/unblock-user.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -95,5 +99,52 @@ export class ChatController {
       req.user.userId,
       dto.userId,
     );
+  }
+
+  @Get('users/search')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Search followed users without existing chats' })
+  async searchChatUsers(
+    @Query('q') query: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.chatService.searchChatUsers(req.user.userId, query);
+  }
+
+  @Post('conversations/clear')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Clear all messages in a conversation' })
+  async clearConversation(
+    @Body() dto: ClearConversationDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.chatService.clearConversation(
+      dto.conversationId,
+      req.user.userId,
+    );
+    return { success: true };
+  }
+
+  @Post('users/block')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Block a user' })
+  async blockUser(@Body() dto: BlockUserDto, @Req() req: AuthenticatedRequest) {
+    await this.chatService.blockUser(req.user.userId, dto.userId);
+    return { success: true };
+  }
+
+  @Post('users/unblock')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Unblock a user' })
+  async unblockUser(
+    @Body() dto: UnblockUserDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.chatService.unblockUser(req.user.userId, dto.userId);
+    return { success: true };
   }
 }

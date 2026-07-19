@@ -5,8 +5,7 @@ import {
   Inject,
   Logger,
 } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';  
-import { Cache } from 'cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -29,7 +28,7 @@ export class AuthService {
     private emailService: EmailService,
     @Inject(CACHE_MANAGER) private cacheManager: any,
     private searchService: SearchService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findFirst({
@@ -139,12 +138,16 @@ export class AuthService {
     return { success: true };
   }
 
-async forgotPassword(email: string) {
+  async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      return { success: true, message: 'Si el correo está registrado, recibirás un email con instrucciones.' };
-    } 
+      return {
+        success: true,
+        message:
+          'Si el correo está registrado, recibirás un email con instrucciones.',
+      };
+    }
 
     // Generamos el código de 6 dígitos
     const code = randomInt(100000, 1000000).toString();
@@ -152,7 +155,9 @@ async forgotPassword(email: string) {
 
     // Guardamos en la caché administrada por Keyv con un TTL específico de 15 minutos
     await this.cacheManager.set(cacheKey, code, 900000);
-    this.logger.log(`Código temporal de recuperación guardado en Keyv Cache para: ${email}`);
+    this.logger.log(
+      `Código temporal de recuperación guardado en Keyv Cache para: ${email}`,
+    );
 
     const htmlContent = `<p>Tu código de recuperación es: <strong>${code}</strong></p>`;
 
@@ -163,24 +168,31 @@ async forgotPassword(email: string) {
         htmlContent,
       );
     } catch (error: any) {
-      this.logger.error(`Error enviando correo de recuperación a ${email}: ${error.message}`);
+      this.logger.error(
+        `Error enviando correo de recuperación a ${email}: ${error.message}`,
+      );
     }
 
     return { success: true };
   }
 
-  async resetPassword(dto: any) { // Cambia 'any' por tu ResetPasswordDto si ya lo tienes creado
+  async resetPassword(dto: any) {
+    // Cambia 'any' por tu ResetPasswordDto si ya lo tienes creado
     const cacheKey = `reset:${dto.email}`;
-    
+
     // 1. Obtener el código almacenado de la caché administrada por Keyv
     const savedCode = await this.cacheManager.get(cacheKey);
 
     if (!savedCode || savedCode !== dto.code) {
-      throw new UnauthorizedException('El código de verificación es inválido o ha expirado.');
+      throw new UnauthorizedException(
+        'El código de verificación es inválido o ha expirado.',
+      );
     }
 
     // 2. Buscar al usuario por correo
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (!user) throw new UnauthorizedException('Usuario no encontrado.');
 
     // 3. Obtener su credencial local activa
@@ -193,9 +205,9 @@ async forgotPassword(email: string) {
     const newHash = await bcrypt.hash(dto.newPassword, 10);
     await this.prisma.userAuth.update({
       where: { id: auth.id },
-      data: { 
+      data: {
         passwordHash: newHash,
-        refreshToken: null // Cerramos sesiones previas por seguridad
+        refreshToken: null, // Cerramos sesiones previas por seguridad
       },
     });
 
@@ -203,7 +215,10 @@ async forgotPassword(email: string) {
     await this.cacheManager.del(cacheKey);
     this.logger.log(`Contraseña restablecida exitosamente para: ${dto.email}`);
 
-    return { success: true, message: 'Tu contraseña ha sido restablecida con éxito.' };
+    return {
+      success: true,
+      message: 'Tu contraseña ha sido restablecida con éxito.',
+    };
   }
 
   private sanitizeUser(user: any) {

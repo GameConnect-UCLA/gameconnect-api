@@ -10,7 +10,7 @@ import {
   Max,
   IsObject,
   ValidateIf,
-  IsDefined
+  IsDefined,
 } from 'class-validator';
 
 export class CreatePostDto {
@@ -19,7 +19,10 @@ export class CreatePostDto {
   @IsOptional()
   title?: string;
 
-  @ApiProperty({ required: false, example: 'Este juego me encantó por su arte y combate.' })
+  @ApiProperty({
+    required: false,
+    example: 'Este juego me encantó por su arte y combate.',
+  })
   @IsString()
   @IsOptional()
   content?: string;
@@ -28,7 +31,9 @@ export class CreatePostDto {
     required: false,
     description: 'Media object returned by upload endpoint',
     example: {
-      urls: ['https://zblamazxjzfgvnguugcb.supabase.co/storage/v1/object/public/gameconnect-storage/uploads/e4376d10-9b24-4a82-9eeb-feb2d91fd943-stocking.jpg']
+      urls: [
+        'https://zblamazxjzfgvnguugcb.supabase.co/storage/v1/object/public/gameconnect-storage/uploads/e4376d10-9b24-4a82-9eeb-feb2d91fd943-stocking.jpg',
+      ],
     },
   })
   @IsObject()
@@ -73,7 +78,10 @@ export class CreatePostDto {
   @IsOptional()
   isRepost?: boolean;
 
-  @ApiProperty({ required: false, example: '2d7293dc-2bd0-4c3e-9220-79ee7e1d2e49' })
+  @ApiProperty({
+    required: false,
+    example: '2d7293dc-2bd0-4c3e-9220-79ee7e1d2e49',
+  })
   @IsUUID()
   @IsOptional()
   originalPostId?: string;

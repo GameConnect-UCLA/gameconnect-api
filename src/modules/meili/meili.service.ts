@@ -8,8 +8,11 @@ export class MeiliService implements OnModuleInit {
   private readonly logger = new Logger(MeiliService.name);
 
   constructor(private configService: ConfigService) {
-    const host = this.configService.get<string>('MEILI_URL') || 'http://localhost:7700';
-    const apiKey = this.configService.get<string>('MEILI_MASTER_KEY') || 'decanatocienciaytecnologiaucla';
+    const host =
+      this.configService.get<string>('MEILI_URL') || 'http://localhost:7700';
+    const apiKey =
+      this.configService.get<string>('MEILI_MASTER_KEY') ||
+      'decanatocienciaytecnologiaucla';
 
     this.client = new Meilisearch({
       host,
@@ -20,7 +23,9 @@ export class MeiliService implements OnModuleInit {
   async onModuleInit() {
     try {
       const health = await this.client.health();
-      this.logger.log(`Meilisearch connection verified. Status: ${health.status}`);
+      this.logger.log(
+        `Meilisearch connection verified. Status: ${health.status}`,
+      );
     } catch (error) {
       this.logger.error('Failed to connect to Meilisearch:', error);
     }
