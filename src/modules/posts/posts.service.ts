@@ -24,7 +24,7 @@ export class PostsService {
     private prisma: PrismaService,
     private mediaService: MediaService,
     private searchService: SearchService,
-  ) {}
+  ) { }
 
   async createPost(userId: string, dto: CreatePostDto) {
     await this.checkUserExists(userId);
@@ -103,13 +103,7 @@ export class PostsService {
           content: body.content,
           media: body.media,
         },
-        select: {
-          id: true,
-          author: true,
-          parentId: true,
-          content: true,
-          media: true,
-        },
+        select: { id: true, author: true, parentId: true, content: true, media: true },
       });
 
       const updatedPost = await tx.post.update({
