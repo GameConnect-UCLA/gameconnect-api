@@ -7,12 +7,11 @@ export class FeedService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getHomeFeed(userId: string, dto: FeedParamsDto) {
-    try {
-      await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true },
-      });
-    } catch (error) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
@@ -102,10 +101,6 @@ export class FeedService {
       feedPosts = [...feedPosts, ...popularByComments];
     }
 
-    if (feedPosts.length === 0) {
-      throw new NotFoundException('No se han encontrado resultados');
-    }
-
     return feedPosts;
   }
 
@@ -125,10 +120,6 @@ export class FeedService {
         },
       },
     });
-
-    if (trendingPosts.length === 0) {
-      throw new NotFoundException('No se han encontrado resultados');
-    }
 
     return trendingPosts;
   }

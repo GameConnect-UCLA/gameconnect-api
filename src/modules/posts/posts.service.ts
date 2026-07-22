@@ -222,10 +222,6 @@ export class PostsService {
       },
     });
 
-    if (posts.length === 0) {
-      throw new NotFoundException('No se han encontrado resultados');
-    }
-
     return posts;
   }
 
@@ -253,10 +249,6 @@ export class PostsService {
         },
       },
     });
-
-    if (comments.length === 0) {
-      throw new NotFoundException('No se han encontrado comentarios');
-    }
 
     return comments;
   }
@@ -348,10 +340,6 @@ export class PostsService {
         },
       },
     });
-
-    if (posts.length === 0) {
-      throw new NotFoundException('No se han encontrado posts favoritos');
-    }
 
     return posts;
   }
