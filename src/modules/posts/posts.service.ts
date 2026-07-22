@@ -103,7 +103,15 @@ export class PostsService {
           content: body.content,
           media: body.media,
         },
-        select: { id: true, author: true, parentId: true, content: true, media: true },
+        include: {
+          authorUser: {
+            select: {
+              username: true,
+              displayName: true,
+              profilePic: true,
+            },
+          },
+        },
       });
 
       const updatedPost = await tx.post.update({
