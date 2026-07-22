@@ -14,9 +14,10 @@ import {
 import { PostsByUserParamsDto } from './dto/posts-by-user-params.dto';
 import { UpdatePostContentDto } from './dto/update-post-content.dto';
 import { BookmarksQueryDto } from './dto/bookmarks-query.dto';
-import { FavoriteType } from '../../generated/prisma/enums';
+import { FavoriteType, EventType } from '../../generated/prisma/enums';
 import { MediaService } from '../media/media.service';
 import { SearchService } from '../search/search.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PostsService {
@@ -24,6 +25,7 @@ export class PostsService {
     private prisma: PrismaService,
     private mediaService: MediaService,
     private searchService: SearchService,
+    private notificationsService: NotificationsService,
   ) { }
 
   async createPost(userId: string, dto: CreatePostDto) {
@@ -90,8 +92,8 @@ export class PostsService {
   }
 
   async createComment(userId: string, dto: PostIDto, body: CreateCommentDto) {
-    await this.checkUserExists(userId);
-    await this.checkPostExists(dto.id);
+    const user = await this.checkUserExists(userId);
+    const post = await this.checkPostExists(dto.id);
 
     let newCommentsCount = 0;
 
@@ -125,12 +127,22 @@ export class PostsService {
       commentsCounter: newCommentsCount,
     });
 
+    if (post.author !== userId) {
+      this.notificationsService
+        .createNotification(post.author, EventType.COMMENT, {
+          commentId: comment.id,
+          postId: dto.id,
+          commentedBy: user.username || user.displayName || userId,
+        })
+        .catch((err) => console.error('Notifications Error (Comment):', err));
+    }
+
     return comment;
   }
 
   async toggleLike(userId: string, dto: LikePostDto) {
     const user = await this.checkUserExists(userId);
-    await this.checkPostExists(dto.postId);
+    const post = await this.checkPostExists(dto.postId);
 
     const existingLike = await this.prisma.like.findFirst({
       where: {
@@ -191,6 +203,15 @@ export class PostsService {
     await this.searchService.updatePostCounters(dto.postId, {
       likesCounter: updated.likesCounter ?? 0,
     });
+
+    if (post.author !== userId) {
+      this.notificationsService
+        .createNotification(post.author, EventType.LIKE, {
+          postId: dto.postId,
+          likedBy: user.username || user.displayName || userId,
+        })
+        .catch((err) => console.error('Notifications Error (Like):', err));
+    }
 
     return {
       postId: updated.id,
@@ -452,7 +473,7 @@ export class PostsService {
   private async checkUserExists(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, username: true },
+      select: { id: true, username: true, displayName: true },
     });
 
     if (!user) {
@@ -467,7 +488,7 @@ export class PostsService {
         id: postId,
         ...(checkDeleted ? { deletedAt: null } : {}),
       },
-      select: { id: true },
+      select: { id: true, author: true },
     });
 
     if (!post) {

@@ -3,6 +3,7 @@ import { PostsService } from './posts.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MediaService } from '../media/media.service';
 import { SearchService } from '../search/search.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('PostsService', () => {
   let service: PostsService;
@@ -14,6 +15,7 @@ describe('PostsService', () => {
         { provide: PrismaService, useValue: {} },
         { provide: MediaService, useValue: {} },
         { provide: SearchService, useValue: {} },
+        { provide: NotificationsService, useValue: {} },
       ],
     }).compile();
 
