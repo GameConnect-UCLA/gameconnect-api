@@ -1,7 +1,7 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { GamesService } from './games.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Games')
 @Controller('games')
@@ -24,7 +24,24 @@ export class GamesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get game by ID' })
-  async findOne(@Param('id') id: string) {
-    return this.gamesService.findById(id);
+  async findOne(
+    @Req() req: any,
+    @Param('id') id: string,
+  ) {
+    return this.gamesService.findById(id, req.user?.userId);
+  }
+
+  @Post(':id/follow')
+  @ApiOperation({ summary: 'Toggle follow/unfollow a game' })
+  @ApiParam({ name: 'id', description: 'Game UUID' })
+  @ApiResponse({ status: 200, description: 'Follow status updated' })
+  @ApiResponse({ status: 401, description: 'No active session' })
+  @ApiResponse({ status: 404, description: 'Game not found' })
+  async toggleFollow(
+    @Req() req: any,
+    @Param('id') id: string,
+  ) {
+    return this.gamesService.toggleFollowGame(req.user.userId, id);
   }
 }
+

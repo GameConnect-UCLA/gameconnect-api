@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -13,6 +14,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { randomInt } from 'crypto';
 import { EmailService } from '../email/email.service';
 import { getForgotPasswordTemplate } from './email.template';
@@ -28,9 +31,9 @@ export class AuthService {
     private emailService: EmailService,
     @Inject(CACHE_MANAGER) private cacheManager: any,
     private searchService: SearchService,
-  ) { }
+  ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto): Promise<AuthResponseDto> {
     const existing = await this.prisma.user.findFirst({
       where: {
         OR: [
@@ -79,7 +82,7 @@ export class AuthService {
     return { ...tokens, user: this.sanitizeUser(user) };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -113,7 +116,7 @@ export class AuthService {
     return { ...tokens, user: this.sanitizeUser(user) };
   }
 
-  async refresh(dto: RefreshDto) {
+  async refresh(dto: RefreshDto): Promise<AuthResponseDto> {
     const payload = await this.jwt
       .verifyAsync<{ sub: string; authId: string }>(dto.refreshToken, {
         secret:
@@ -150,7 +153,7 @@ export class AuthService {
       where: { id: auth.id },
       data: { refreshToken: tokens.refreshToken },
     });
-    return { ...tokens, user };
+    return { ...tokens, user: this.sanitizeUser(user) };
   }
 
   async logout(userId: string, refreshToken?: string) {
@@ -166,6 +169,56 @@ export class AuthService {
       });
     }
     return { success: true };
+  }
+
+  /**
+   * Cambio de contraseña desde ajustes: exige la contraseña actual.
+   * Cierra la sesión en el resto de dispositivos y re-emite tokens
+   * para el dispositivo que hizo el cambio.
+   */
+
+  async changePassword(userId: string, authId: string, dto: ChangePasswordDto) {
+    const auth = await this.prisma.userAuth.findFirst({
+      where: { id: authId, userId, provider: 'local' },
+    });
+    if (!auth?.passwordHash) {
+      throw new UnauthorizedException(
+        'Esta cuenta no tiene una contraseña local',
+      );
+    }
+
+    const valid = await bcrypt.compare(dto.currentPassword, auth.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('La contraseña actual es incorrecta');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException(
+        'La nueva contraseña debe ser distinta de la actual',
+      );
+    }
+
+    const newHash = await bcrypt.hash(dto.newPassword, 10);
+
+    // Invalida todas las sesiones del usuario...
+    await this.prisma.userAuth.updateMany({
+      where: { userId },
+      data: { refreshToken: null },
+    });
+    await this.prisma.userAuth.update({
+      where: { id: auth.id },
+      data: { passwordHash: newHash },
+    });
+
+    // ...y devuelve tokens nuevos para este dispositivo.
+    const tokens = await this.generateTokens(userId, auth.id);
+    await this.prisma.userAuth.update({
+      where: { id: auth.id },
+      data: { refreshToken: tokens.refreshToken },
+    });
+
+    this.logger.log(`Contraseña actualizada para el usuario: ${userId}`);
+    return tokens;
   }
 
   async forgotPassword(email: string) {
