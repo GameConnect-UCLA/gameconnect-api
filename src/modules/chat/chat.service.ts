@@ -66,7 +66,10 @@ export class ChatService {
       where: { conversationId, userId, leftAt: null },
     });
     if (!member) {
-      throw new ForbiddenException('You are not a member of this conversation');
+      throw new ForbiddenException({
+        code: 'NOT_CONVERSATION_MEMBER',
+        message: 'No eres miembro de esta conversación',
+      });
     }
     return member;
   }
@@ -76,9 +79,10 @@ export class ChatService {
     targetUserId: string,
   ): Promise<ConversationInfo> {
     if (currentUserId === targetUserId) {
-      throw new ForbiddenException(
-        'Cannot create a conversation with yourself',
-      );
+      throw new ForbiddenException({
+        code: 'CANNOT_CHAT_SELF',
+        message: 'No puedes crear una conversación contigo mismo',
+      });
     }
 
     const existing = await this.prisma.conversation.findFirst({
@@ -456,7 +460,10 @@ export class ChatService {
 
   async blockUser(userId: string, targetUserId: string): Promise<void> {
     if (userId === targetUserId) {
-      throw new ForbiddenException('Cannot block yourself');
+      throw new ForbiddenException({
+        code: 'CANNOT_BLOCK_SELF',
+        message: 'No puedes bloquearte a ti mismo',
+      });
     }
 
     const user = await this.prisma.user.findUnique({
