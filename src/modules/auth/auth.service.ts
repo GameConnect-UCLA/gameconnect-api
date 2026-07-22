@@ -41,8 +41,14 @@ export class AuthService {
     });
     if (existing) {
       if (existing.email === dto.email)
-        throw new ConflictException('Email already registered');
-      throw new ConflictException('Username already taken');
+        throw new ConflictException({
+          code: 'EMAIL_IN_USE',
+          message: 'El correo electrónico ya está registrado',
+        });
+      throw new ConflictException({
+        code: 'USERNAME_IN_USE',
+        message: 'El nombre de usuario ya está tomado',
+      });
     }
     const hash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
@@ -77,15 +83,27 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
-    if (!user) throw new UnauthorizedException();
+    if (!user)
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Correo electrónico o contraseña incorrectos.',
+      });
 
     const auth = await this.prisma.userAuth.findFirst({
       where: { userId: user.id, provider: 'local' },
     });
-    if (!auth?.passwordHash) throw new UnauthorizedException();
+    if (!auth?.passwordHash)
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Correo electrónico o contraseña incorrectos.',
+      });
 
     const valid = await bcrypt.compare(dto.password, auth.passwordHash);
-    if (!valid) throw new UnauthorizedException();
+    if (!valid)
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Correo electrónico o contraseña incorrectos.',
+      });
 
     const tokens = await this.generateTokens(user.id, auth.id);
     await this.prisma.userAuth.update({
@@ -103,17 +121,29 @@ export class AuthService {
           this.config.get('JWT_SECRET'),
       })
       .catch(() => null);
-    if (!payload) throw new UnauthorizedException();
+    if (!payload)
+      throw new UnauthorizedException({
+        code: 'AUTH_TOKEN_EXPIRED',
+        message: 'Tu sesión ha expirado. Inicia sesión de nuevo.',
+      });
 
     const auth = await this.prisma.userAuth.findFirst({
       where: { refreshToken: dto.refreshToken },
     });
-    if (!auth) throw new UnauthorizedException();
+    if (!auth)
+      throw new UnauthorizedException({
+        code: 'AUTH_TOKEN_EXPIRED',
+        message: 'Tu sesión ha expirado. Inicia sesión de nuevo.',
+      });
 
     const user = await this.prisma.user.findUnique({
       where: { id: auth.userId },
     });
-    if (!user) throw new UnauthorizedException();
+    if (!user)
+      throw new UnauthorizedException({
+        code: 'AUTH_TOKEN_EXPIRED',
+        message: 'Tu sesión ha expirado. Inicia sesión de nuevo.',
+      });
 
     const tokens = await this.generateTokens(auth.userId, auth.id);
     await this.prisma.userAuth.update({
