@@ -218,6 +218,19 @@ export class SearchService implements OnModuleInit {
   }
 
   /**
+   * Elimina un usuario del índice (cuenta borrada o baneada).
+   */
+  async deleteUser(userId: string) {
+    try {
+      const client = this.meiliService.getClient();
+      await client.index(this.INDEX_NAME).deleteDocument(userId);
+      this.logger.log(`Deleted user ${userId} from index.`);
+    } catch (error) {
+      this.logger.error(`Failed to delete user ${userId} from index:`, error);
+    }
+  }
+
+  /**
    * Sincroniza un juego en tiempo real (si es necesario).
    */
   async indexGame(game: any) {
