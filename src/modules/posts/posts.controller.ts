@@ -102,7 +102,7 @@ export class PostsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get comments from a post' })
   @ApiResponse({ status: 200, description: 'Comments retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Post or comments not found' })
+  @ApiResponse({ status: 404, description: 'Post not found' })
   async getPostComments(
     @Param() dto: PostIDto,
     @Query() query: PostCommentsQueryDto,
@@ -117,7 +117,7 @@ export class PostsController {
     status: 200,
     description: 'Bookmarked posts retrieved successfully',
   })
-  @ApiResponse({ status: 404, description: 'No bookmarked posts found' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getBookmarkedPosts(@Req() req: any, @Query() dto: BookmarksQueryDto) {
     return this.postsService.getBookmarkedPosts(req.user.userId, dto);
   }
@@ -125,7 +125,7 @@ export class PostsController {
   @Get('user')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get posts by user' })
-  @ApiResponse({ status: 404, description: 'Post not found' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getPostsByUser(@Query() dto: PostsByUserParamsDto) {
     const userPosts = await this.postsService.getPostsByUser(dto);
     return userPosts;
