@@ -204,7 +204,7 @@ export class PostsService {
       likesCounter: updated.likesCounter ?? 0,
     });
 
-    if (post.author !== userId) {
+    if (!existingLike) {
       this.notificationsService
         .createNotification(post.author, EventType.LIKE, {
           postId: dto.postId,

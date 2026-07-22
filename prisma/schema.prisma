@@ -323,6 +323,7 @@ model Notification {
   id        String    @id @default(uuid()) @db.Uuid
   userId    String    @map("user_id") @db.Uuid
   type      EventType
+  affectedItemId    String       // puede ser un post, puede ser un user (follow)
   payload   Json?
   read      Boolean?
   createdAt DateTime? @map("created_at") @db.Timestamptz
