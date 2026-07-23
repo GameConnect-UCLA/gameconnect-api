@@ -4,9 +4,10 @@ import { PostsService } from './posts.service';
 import { AuthModule } from '../auth/auth.module';
 import { MediaModule } from '../media/media.module';
 import { SearchModule } from '../search/search.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, MediaModule, SearchModule],
+  imports: [AuthModule, MediaModule, SearchModule, NotificationsModule],
   controllers: [PostsController],
   providers: [PostsService],
   exports: [PostsService],
