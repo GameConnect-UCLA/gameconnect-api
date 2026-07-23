@@ -16,36 +16,66 @@ export class UsersService {
   ) { }
 
   async findById(id: string) {
-    return this.prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        email: true,
-        bio: true,
-        pronouns: true,
-        birthDate: true,
-        role: true,
-        state: true,
-        profilePic: true,
-        coverPic: true,
-        verified: true,
-        createdAt: true,
-        accountSettings: true,
-        favoriteGames: {
+    const [profile, followersCount, followingCount, gamesFollowingCount] =
+      await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id },
           select: {
             id: true,
-            game: {
+            username: true,
+            displayName: true,
+            email: true,
+            bio: true,
+            pronouns: true,
+            birthDate: true,
+            role: true,
+            state: true,
+            profilePic: true,
+            coverPic: true,
+            verified: true,
+            createdAt: true,
+            accountSettings: true,
+            favoriteGames: {
               select: {
                 id: true,
-                metadata: true,
+                game: {
+                  select: {
+                    id: true,
+                    metadata: true,
+                  },
+                },
+              },
+            },
+            _count: {
+              select: {
+                posts: true,
               },
             },
           },
-        },
-      },
-    });
+        }),
+        this.prisma.follow.count({
+          where: { followedId: id, followedType: FolloweeType.USER },
+        }),
+        this.prisma.follow.count({
+          where: { followerId: id, followedType: FolloweeType.USER },
+        }),
+        this.prisma.follow.count({
+          where: { followerId: id, followedType: 'GAME' },
+        }),
+      ]);
+
+    if (!profile) throw new NotFoundException('User not found');
+
+    const { _count, ...rest } = profile;
+
+    return {
+      ...rest,
+      postsCount: _count.posts,
+      followersCount,
+      followingCount,
+      gamesFollowingCount,
+      isFollowing: false,
+    };
   }
 
   async getPublicProfile(id: string, viewerId?: string) {
